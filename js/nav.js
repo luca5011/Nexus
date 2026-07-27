@@ -5,7 +5,24 @@ async function renderNav(activePage) {
   const root = document.getElementById("nav-root");
   if (!root) return;
 
-  const { data: { user } } = await supabase.auth.getUser();
+  let user = null;
+  let profile = null;
+
+  try {
+    const { data } = await sb.auth.getUser();
+    user = data.user;
+
+    if (user) {
+      const { data: p } = await sb
+        .from("profiles")
+        .select("username, coin_balance, is_admin")
+        .eq("id", user.id)
+        .single();
+      profile = p;
+    }
+  } catch (err) {
+    console.error("renderNav: 로그인 상태 확인 실패", err);
+  }
 
   const links = [
     { href: "problems.html", label: "문제", key: "problems" },
@@ -16,16 +33,9 @@ async function renderNav(activePage) {
 
   let rightHtml = "";
   if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("username, coin_balance, is_admin")
-      .eq("id", user.id)
-      .single();
-
     if (profile?.is_admin) {
       links.push({ href: "admin.html", label: "관리자", key: "admin" });
     }
-
     rightHtml = `
       <span class="coin-pill">🪙 ${profile?.coin_balance ?? 0}</span>
       <a href="profile.html">${profile?.username ?? "프로필"}</a>
@@ -51,7 +61,7 @@ async function renderNav(activePage) {
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn) {
     logoutBtn.addEventListener("click", async () => {
-      await supabase.auth.signOut();
+      await sb.auth.signOut();
       window.location.href = "index.html";
     });
   }
@@ -59,7 +69,7 @@ async function renderNav(activePage) {
 
 /** 로그인 안 되어 있으면 로그인 페이지로 튕겨내는 가드 (마이페이지/제출 등에서 사용) */
 async function requireAuth() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await sb.auth.getUser();
   if (!user) {
     window.location.href = "login.html";
     return null;
