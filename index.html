@@ -12,8 +12,8 @@
 
 <main class="page">
   <section class="hero">
-    <h1>수학, 과학, 국어를 <br>백준처럼 <span style="color:var(--accent)">풀고 성장</span>하세요.</h1>
-    <p class="sub">과목별 독립 티어, Elo 기반 레이팅, 승급 보상 코인까지 — 문제를 풀수록 쌓이는 나만의 실력 그래프.</p>
+    <h1>Learn, <span style="color:var(--accent)">Solve</span>, Develop.</h1>
+    <p class="sub">  문제를 풀수록 쌓이는 나만의 실력 그래프.</p>
     <div id="hero-cta"></div>
     <div id="tier-grid" class="tier-grid"></div>
   </section>
@@ -26,9 +26,16 @@
 async function initHome() {
   await renderNav("home");
 
-  const { data: { user } } = await supabase.auth.getUser();
   const ctaEl = document.getElementById("hero-cta");
   const gridEl = document.getElementById("tier-grid");
+
+  let user = null;
+  try {
+    const { data } = await sb.auth.getUser();
+    user = data.user;
+  } catch (err) {
+    console.error("initHome: getUser 실패", err);
+  }
 
   if (!user) {
     ctaEl.innerHTML = `
@@ -39,7 +46,7 @@ async function initHome() {
     return;
   }
 
-  const { data: tiers } = await supabase
+  const { data: tiers } = await sb
     .from("user_tiers")
     .select("subject, rating, solved_count")
     .eq("user_id", user.id);
