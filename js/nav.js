@@ -36,6 +36,7 @@ async function renderNav(activePage) {
     if (profile?.is_admin) {
       links.push({ href: "admin.html", label: "관리자", key: "admin" });
     }
+
     rightHtml = `
       <span class="coin-pill">🪙 ${profile?.coin_balance ?? 0}</span>
       <a href="profile.html">${profile?.username ?? "프로필"}</a>
@@ -54,9 +55,24 @@ async function renderNav(activePage) {
       <div class="nav__links">
         ${links.map(l => `<a href="${l.href}" class="${activePage === l.key ? "active" : ""}">${l.label}</a>`).join("")}
       </div>
-      <div class="nav__right">${rightHtml}</div>
+      <div class="nav__right">
+        <button id="theme-toggle" class="btn btn--ghost" style="padding:6px 10px;" title="다크/라이트 모드 전환"></button>
+        ${rightHtml}
+      </div>
     </nav>
   `;
+
+  const themeBtn = document.getElementById("theme-toggle");
+  const applyThemeIcon = () => {
+    themeBtn.textContent = document.documentElement.dataset.theme === "light" ? "🌙" : "☀️";
+  };
+  applyThemeIcon();
+  themeBtn.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next;
+    localStorage.setItem("nexus-theme", next);
+    applyThemeIcon();
+  });
 
   const logoutBtn = document.getElementById("logout-btn");
   if (logoutBtn) {
@@ -75,4 +91,39 @@ async function requireAuth() {
     return null;
   }
   return user;
+}
+
+/** 페이지 로드 시 저장된 테마 즉시 적용 (nav.js 로드 시점에 한 번 실행) */
+document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";
+
+/** 첫 접속이면 튜토리얼 모달을 한 번만 보여줌 */
+function showTutorial() {
+  const overlay = document.createElement("div");
+  overlay.className = "tutorial-overlay";
+  overlay.innerHTML = `
+    <div class="tutorial-modal">
+      <h2>Nexus에 오신 걸 환영해요 👋</h2>
+      <ul class="tutorial-list">
+        <li><strong>문제</strong>과목별(수학·과학·국어) 문제를 풀어요</li>
+        <li><strong>랭킹</strong>과목별 레이팅 순위를 확인해요</li>
+        <li><strong>상점</strong>코인으로 배경·테마·칭호를 구매해요</li>
+        <li><strong>개발자노트</strong>업데이트 소식을 확인해요</li>
+      </ul>
+      <div class="tutorial-warning">저희는 AI 사용을 금지합니다.</div>
+      <button class="btn btn--primary btn--block" id="tutorial-close">확인했어요</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  document.getElementById("tutorial-close").addEventListener("click", () => {
+    localStorage.setItem("nexus-tutorial-seen", "true");
+    overlay.remove();
+  });
+}
+
+if (!localStorage.getItem("nexus-tutorial-seen")) {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", showTutorial);
+  } else {
+    showTutorial();
+  }
 }

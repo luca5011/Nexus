@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>개발자노트 · Nexus</title>
 <link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -23,7 +24,7 @@
 async function loadNotes() {
   await renderNav("devnotes");
 
-  const { data: notes, error } = await supabase
+  const { data: notes, error } = await sb
     .from("dev_notes")
     .select("id, title, content, created_at")
     .order("created_at", { ascending: false });

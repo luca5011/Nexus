@@ -29,6 +29,34 @@
   --radius-sm: 6px;
 }
 
+:root[data-theme="light"] {
+  --bg:            #f5f6fa;
+  --surface:       #ffffff;
+  --surface-hi:    #eef0f6;
+  --border:        #dde1ea;
+  --text:          #1c1f2b;
+  --text-muted:    #5b6072;
+  --text-faint:    #9096a8;
+  --accent:        #3b66b0;
+  --accent-soft:   rgba(59, 102, 176, 0.10);
+
+  --tier-origin:       #a8623a;
+  --tier-apex:         #3b66b0;
+  --tier-zenith:       #7448a0;
+  --tier-infinity:     #229184;
+  --tier-transcendent: #a97f1f;
+}
+
+:root[data-theme="light"] body {
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(59, 102, 176, 0.06), transparent 40%),
+    radial-gradient(circle at 85% 10%, rgba(116, 72, 160, 0.05), transparent 45%);
+}
+
+body, .nav, .card, .btn, .tier-card, .shop-item, .choice-option {
+  transition: background-color .15s, border-color .15s, color .15s;
+}
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -419,4 +447,54 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
   .nav { gap: 12px; flex-wrap: wrap; }
   .nav__links { order: 3; width: 100%; overflow-x: auto; }
   .hero h1 { font-size: 26px; }
+}
+
+/* ---- 튜토리얼 모달 ---- */
+.tutorial-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.tutorial-modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  max-width: 420px;
+  width: 100%;
+}
+.tutorial-modal h2 {
+  font-size: 20px;
+  margin-bottom: 16px;
+}
+.tutorial-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.tutorial-list li {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.tutorial-list li strong {
+  color: var(--text);
+  margin-right: 4px;
+}
+.tutorial-warning {
+  background: rgba(217, 83, 79, 0.12);
+  color: var(--danger);
+  font-weight: 700;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 20px;
+  font-size: 14px;
+  text-align: center;
 }

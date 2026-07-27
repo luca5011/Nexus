@@ -5,4 +5,4 @@
 const SUPABASE_URL = "https://rexfwzbwgvezydczbgmd.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_H156jfidtXMcoO2aPDrZ7g_moIObw8v";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

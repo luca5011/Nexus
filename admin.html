@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>관리자 · Nexus</title>
 <link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -113,6 +114,27 @@
       </div>
     </section>
 
+    <section class="admin-section">
+      <h2>제출 기록</h2>
+      <div class="card">
+        <div class="field">
+          <label>아이디로 필터 (비우면 전체 최근 100개)</label>
+          <input id="sub-search" type="text" placeholder="username 입력 후 Enter">
+        </div>
+      </div>
+      <div class="card" style="padding:0; overflow:hidden; margin-top:12px;">
+        <table class="problem-table">
+          <thead>
+            <tr>
+              <th>결과</th><th>유저</th><th>과목</th><th>문제</th><th>제출 내용</th><th>시각</th>
+            </tr>
+          </thead>
+          <tbody id="submissions-rows"></tbody>
+        </table>
+        <div id="submissions-empty" class="empty-state" style="display:none;">제출 기록이 없어요.</div>
+      </div>
+    </section>
+
   </div>
 </main>
 
@@ -125,7 +147,7 @@ async function init() {
   const user = await requireAuth();
   if (!user) return;
 
-  const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", user.id).single();
+  const { data: profile } = await sb.from("profiles").select("is_admin").eq("id", user.id).single();
   if (!profile?.is_admin) {
     document.getElementById("guard-msg").innerHTML = `<p style="color:var(--danger)">관리자 계정만 접근할 수 있어요.</p>`;
     return;
@@ -159,7 +181,7 @@ async function init() {
     const content = document.getElementById("p-content").value.trim();
     const answer_type = document.getElementById("p-answer-type").value;
 
-    const { data: problem, error: pErr } = await supabase
+    const { data: problem, error: pErr } = await sb
       .from("problems")
       .insert({ subject, tier_level, title, content, answer_type, created_by: user.id })
       .select()
@@ -172,14 +194,14 @@ async function init() {
       const correctIndex = parseInt(document.getElementById("p-correct-index").value, 10) - 1;
 
       const choiceRows = lines.map((text, i) => ({ problem_id: problem.id, choice_order: i, choice_text: text }));
-      const { data: insertedChoices, error: cErr } = await supabase.from("problem_choices").insert(choiceRows).select();
+      const { data: insertedChoices, error: cErr } = await sb.from("problem_choices").insert(choiceRows).select();
       if (cErr) { msg.textContent = cErr.message; msg.classList.add("form-msg--error"); return; }
 
       const correctChoice = insertedChoices.find(c => c.choice_order === correctIndex);
-      await supabase.from("problem_answers").insert({ problem_id: problem.id, correct_answer: correctChoice?.id ?? "" });
+      await sb.from("problem_answers").insert({ problem_id: problem.id, correct_answer: correctChoice?.id ?? "" });
     } else {
       const correctText = document.getElementById("p-correct-text").value.trim();
-      await supabase.from("problem_answers").insert({ problem_id: problem.id, correct_answer: correctText });
+      await sb.from("problem_answers").insert({ problem_id: problem.id, correct_answer: correctText });
     }
 
     msg.textContent = "문제가 등록됐어요.";
@@ -194,7 +216,7 @@ async function init() {
     const title = document.getElementById("n-title").value.trim();
     const content = document.getElementById("n-content").value.trim();
 
-    const { error } = await supabase.from("dev_notes").insert({ title, content, created_by: user.id });
+    const { error } = await sb.from("dev_notes").insert({ title, content, created_by: user.id });
     msg.textContent = error ? error.message : "게시했어요.";
     msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
     if (!error) e.target.reset();
@@ -217,7 +239,7 @@ async function init() {
       row.price = parseInt(document.getElementById("t-price").value, 10);
     }
 
-    const { error } = await supabase.from("titles").insert(row);
+    const { error } = await sb.from("titles").insert(row);
     msg.textContent = error ? error.message : "칭호를 추가했어요.";
     msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
     if (!error) e.target.reset();
@@ -230,7 +252,7 @@ async function init() {
     const resultEl = document.getElementById("user-search-result");
     resultEl.innerHTML = "검색 중...";
 
-    const { data: found, error } = await supabase
+    const { data: found, error } = await sb
       .from("profiles")
       .select("id, username, is_banned, is_admin")
       .ilike("username", username)
@@ -253,11 +275,64 @@ async function init() {
     resultEl.querySelectorAll("button[data-ban]").forEach(btn => {
       btn.addEventListener("click", async () => {
         const isBanned = btn.dataset.ban === "true";
-        await supabase.from("profiles").update({ is_banned: isBanned }).eq("id", btn.dataset.id);
+        await sb.from("profiles").update({ is_banned: isBanned }).eq("id", btn.dataset.id);
         document.getElementById("user-search").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
       });
     });
   });
+
+  // 제출 기록
+  async function loadSubmissions(username) {
+    const rowsEl = document.getElementById("submissions-rows");
+    const emptyEl = document.getElementById("submissions-empty");
+    rowsEl.innerHTML = "";
+
+    let targetUserId = null;
+    if (username) {
+      const { data: u } = await sb.from("profiles").select("id").ilike("username", username).limit(1).single();
+      if (!u) {
+        emptyEl.style.display = "block";
+        emptyEl.textContent = "해당 아이디의 유저를 찾을 수 없어요.";
+        return;
+      }
+      targetUserId = u.id;
+      emptyEl.textContent = "제출 기록이 없어요.";
+    }
+
+    let query = sb
+      .from("submissions")
+      .select("submitted_answer, is_correct, submitted_at, profiles(username), problems(title, subject)")
+      .order("submitted_at", { ascending: false })
+      .limit(100);
+
+    if (targetUserId) query = query.eq("user_id", targetUserId);
+
+    const { data: subs, error } = await query;
+
+    if (error || !subs || subs.length === 0) {
+      emptyEl.style.display = "block";
+      return;
+    }
+    emptyEl.style.display = "none";
+
+    rowsEl.innerHTML = subs.map(s => `
+      <tr>
+        <td class="${s.is_correct ? "problem-row-solved" : ""}" style="${s.is_correct ? "" : "color:var(--danger)"}">${s.is_correct ? "정답" : "오답"}</td>
+        <td>${s.profiles?.username ?? "알 수 없음"}</td>
+        <td style="color:var(--text-muted); font-size:13px;">${SUBJECTS[s.problems?.subject]?.label ?? "-"}</td>
+        <td>${s.problems?.title ?? "(삭제된 문제)"}</td>
+        <td style="color:var(--text-muted); font-size:13px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.submitted_answer}</td>
+        <td style="color:var(--text-faint); font-size:12px; font-family:var(--font-mono);">${new Date(s.submitted_at).toLocaleString("ko-KR")}</td>
+      </tr>
+    `).join("");
+  }
+
+  document.getElementById("sub-search").addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    loadSubmissions(e.target.value.trim());
+  });
+
+  loadSubmissions(null);
 }
 
 init();

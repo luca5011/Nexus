@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>문제 · Nexus</title>
 <link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -53,9 +54,9 @@ async function loadProblems() {
   const emptyEl = document.getElementById("empty");
   rowsEl.innerHTML = "";
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await sb.auth.getUser();
 
-  const { data: problems, error } = await supabase
+  const { data: problems, error } = await sb
     .from("problems")
     .select("id, title, tier_level, answer_type")
     .eq("subject", currentSubject)
@@ -69,7 +70,7 @@ async function loadProblems() {
 
   let solvedIds = new Set();
   if (user) {
-    const { data: solved } = await supabase
+    const { data: solved } = await sb
       .from("solved_problems")
       .select("problem_id")
       .eq("user_id", user.id);

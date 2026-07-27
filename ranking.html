@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>랭킹 · Nexus</title>
 <link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -51,7 +52,7 @@ async function loadRanking() {
   const emptyEl = document.getElementById("empty");
   rowsEl.innerHTML = "";
 
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("user_tiers")
     .select("rating, solved_count, profiles(username)")
     .eq("subject", currentSubject)

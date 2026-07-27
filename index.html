@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nexus</title>
 <link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -13,7 +14,7 @@
 <main class="page">
   <section class="hero">
     <h1>Learn, <span style="color:var(--accent)">Solve</span>, Develop.</h1>
-    <p class="sub">  문제를 풀수록 쌓이는 나만의 실력 그래프.</p>
+    <p class="sub">과목별 독립 티어, Elo 기반 레이팅, 승급 보상 코인까지 — 문제를 풀수록 쌓이는 나만의 실력 그래프.</p>
     <div id="hero-cta"></div>
     <div id="tier-grid" class="tier-grid"></div>
   </section>

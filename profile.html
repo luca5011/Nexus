@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>프로필 · Nexus</title>
 <link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -30,7 +31,7 @@ async function loadProfile() {
   const user = await requireAuth();
   if (!user) return;
 
-  const { data: profile } = await supabase
+  const { data: profile } = await sb
     .from("profiles")
     .select("username, avatar_url, coin_balance, equipped_title_id")
     .eq("id", user.id)
@@ -38,7 +39,7 @@ async function loadProfile() {
 
   let equippedTitleName = "";
   if (profile?.equipped_title_id) {
-    const { data: t } = await supabase.from("titles").select("name").eq("id", profile.equipped_title_id).single();
+    const { data: t } = await sb.from("titles").select("name").eq("id", profile.equipped_title_id).single();
     equippedTitleName = t?.name ?? "";
   }
 
@@ -50,7 +51,7 @@ async function loadProfile() {
     </div>
   `;
 
-  const { data: tiers } = await supabase
+  const { data: tiers } = await sb
     .from("user_tiers")
     .select("subject, rating, solved_count")
     .eq("user_id", user.id);
@@ -78,7 +79,7 @@ async function loadProfile() {
     `;
   }).join("");
 
-  const { data: userTitles } = await supabase
+  const { data: userTitles } = await sb
     .from("user_titles")
     .select("titles(id, name)")
     .eq("user_id", user.id);
@@ -93,7 +94,7 @@ async function loadProfile() {
 
     titlesEl.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("click", async () => {
-        await supabase.from("profiles").update({ equipped_title_id: btn.dataset.titleId }).eq("id", user.id);
+        await sb.from("profiles").update({ equipped_title_id: btn.dataset.titleId }).eq("id", user.id);
         loadProfile();
       });
     });

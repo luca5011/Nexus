@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>문제 풀이 · Nexus</title>
 <link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -38,7 +39,7 @@ async function loadProblem() {
     return;
   }
 
-  const { data: p, error } = await supabase
+  const { data: p, error } = await sb
     .from("problems")
     .select("id, title, content, tier_level, answer_type, subject")
     .eq("id", problemId)
@@ -62,7 +63,7 @@ async function loadProblem() {
   const answerArea = document.getElementById("answer-area");
 
   if (p.answer_type === "objective") {
-    const { data: choices } = await supabase
+    const { data: choices } = await sb
       .from("problem_choices")
       .select("id, choice_text, choice_order")
       .eq("problem_id", p.id)
@@ -108,7 +109,7 @@ async function submitAnswer() {
   btn.disabled = true;
   btn.textContent = "채점 중...";
 
-  const { data, error } = await supabase.rpc("submit_answer", {
+  const { data, error } = await sb.rpc("submit_answer", {
     p_problem_id: problemId,
     p_answer: answer,
   });
@@ -121,7 +122,11 @@ async function submitAnswer() {
 
   if (error) {
     resultEl.className = "result-banner result-banner--wrong";
-    resultEl.textContent = "제출 중 오류가 발생했어요: " + error.message;
+    if (error.message.includes("BANNED")) {
+      resultEl.textContent = "이 계정은 밴 처리되어 문제를 제출할 수 없어요.";
+    } else {
+      resultEl.textContent = "제출 중 오류가 발생했어요: " + error.message;
+    }
     return;
   }
 

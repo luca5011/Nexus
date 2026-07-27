@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>상점 · Nexus</title>
 <link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -30,7 +31,7 @@ let ownedItemIds = new Set();
 let ownedTitleIds = new Set();
 
 async function refreshBalance() {
-  const { data: profile } = await supabase.from("profiles").select("coin_balance").eq("id", currentUser.id).single();
+  const { data: profile } = await sb.from("profiles").select("coin_balance").eq("id", currentUser.id).single();
   document.getElementById("balance-line").innerHTML = `보유 코인 <strong style="color:var(--tier-transcendent)">🪙 ${profile?.coin_balance ?? 0}</strong>`;
   return profile?.coin_balance ?? 0;
 }
@@ -41,13 +42,13 @@ async function loadShop() {
 
   await refreshBalance();
 
-  const { data: inventory } = await supabase.from("user_inventory").select("item_id").eq("user_id", currentUser.id);
+  const { data: inventory } = await sb.from("user_inventory").select("item_id").eq("user_id", currentUser.id);
   ownedItemIds = new Set((inventory ?? []).map(i => i.item_id));
 
-  const { data: userTitles } = await supabase.from("user_titles").select("title_id").eq("user_id", currentUser.id);
+  const { data: userTitles } = await sb.from("user_titles").select("title_id").eq("user_id", currentUser.id);
   ownedTitleIds = new Set((userTitles ?? []).map(t => t.title_id));
 
-  const { data: items } = await supabase.from("shop_items").select("*").order("price", { ascending: true });
+  const { data: items } = await sb.from("shop_items").select("*").order("price", { ascending: true });
   const itemsGrid = document.getElementById("items-grid");
   if (!items || items.length === 0) {
     itemsGrid.innerHTML = `<div class="empty-state">등록된 상품이 없어요.</div>`;
@@ -68,7 +69,7 @@ async function loadShop() {
     }).join("");
   }
 
-  const { data: titles } = await supabase.from("titles").select("*").eq("acquire_type", "purchase").order("price", { ascending: true });
+  const { data: titles } = await sb.from("titles").select("*").eq("acquire_type", "purchase").order("price", { ascending: true });
   const titlesGrid = document.getElementById("titles-grid");
   if (!titles || titles.length === 0) {
     titlesGrid.innerHTML = `<div class="empty-state">구매 가능한 칭호가 없어요.</div>`;
@@ -95,7 +96,7 @@ async function loadShop() {
 async function purchase(kind, id) {
   const rpcName = kind === "item" ? "purchase_item" : "purchase_title";
   const paramName = kind === "item" ? "p_item_id" : "p_title_id";
-  const { data, error } = await supabase.rpc(rpcName, { [paramName]: id });
+  const { data, error } = await sb.rpc(rpcName, { [paramName]: id });
 
   if (error) { alert("구매 중 오류: " + error.message); return; }
 
