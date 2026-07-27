@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>랭킹 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px;">
+  <h1>랭킹</h1>
+  <p>과목별로 레이팅이 높은 순서로 표시돼요.</p>
+  <div id="subject-tabs" class="subject-tabs"></div>
+
+  <div class="card" style="padding:0; overflow:hidden;">
+    <table class="rank-table">
+      <thead><tr><th>순위</th><th>유저</th><th>티어</th><th>레이팅</th><th>푼 문제</th></tr></thead>
+      <tbody id="rank-rows"></tbody>
+    </table>
+    <div id="empty" class="empty-state" style="display:none;">아직 랭킹 데이터가 없어요.</div>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+let currentSubject = "math";
+
+function renderTabs() {
+  const el = document.getElementById("subject-tabs");
+  el.innerHTML = SUBJECT_ORDER.filter(k => !SUBJECTS[k].disabled).map(key => {
+    const s = SUBJECTS[key];
+    return `<button class="subject-tab ${key === currentSubject ? "active" : ""}" data-subject="${key}">${s.icon} ${s.label}</button>`;
+  }).join("");
+
+  el.querySelectorAll(".subject-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentSubject = btn.dataset.subject;
+      renderTabs();
+      loadRanking();
+    });
+  });
+}
+
+async function loadRanking() {
+  const rowsEl = document.getElementById("rank-rows");
+  const emptyEl = document.getElementById("empty");
+  rowsEl.innerHTML = "";
+
+  const { data, error } = await supabase
+    .from("user_tiers")
+    .select("rating, solved_count, profiles(username)")
+    .eq("subject", currentSubject)
+    .order("rating", { ascending: false })
+    .limit(100);
+
+  if (error || !data || data.length === 0) {
+    emptyEl.style.display = "block";
+    return;
+  }
+  emptyEl.style.display = "none";
+
+  rowsEl.innerHTML = data.map((row, i) => {
+    const tier = ratingToTierDisplay(row.rating);
+    return `
+      <tr>
+        <td class="rank-num">${i + 1}</td>
+        <td>${row.profiles?.username ?? "알 수 없음"}</td>
+        <td><span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span></td>
+        <td style="font-family:var(--font-mono);">${Math.round(row.rating)}</td>
+        <td style="color:var(--text-muted);">${row.solved_count}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+(async function init() {
+  await renderNav("ranking");
+  renderTabs();
+  loadRanking();
+})();
+</script>
+</body>
+</html>

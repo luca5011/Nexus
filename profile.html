@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>프로필 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px;">
+  <div id="profile-header" class="profile-header"></div>
+  <div id="stat-grid" class="stat-grid"></div>
+
+  <h2 style="margin-top:32px;">과목별 티어</h2>
+  <div id="tier-grid" class="tier-grid"></div>
+
+  <h2 style="margin-top:32px;">보유 칭호</h2>
+  <div id="titles-list" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+async function loadProfile() {
+  await renderNav("profile");
+  const user = await requireAuth();
+  if (!user) return;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("username, avatar_url, coin_balance, equipped_title_id")
+    .eq("id", user.id)
+    .single();
+
+  let equippedTitleName = "";
+  if (profile?.equipped_title_id) {
+    const { data: t } = await supabase.from("titles").select("name").eq("id", profile.equipped_title_id).single();
+    equippedTitleName = t?.name ?? "";
+  }
+
+  document.getElementById("profile-header").innerHTML = `
+    <img class="profile-avatar" src="${profile?.avatar_url || "https://api.dicebear.com/7.x/shapes/svg?seed=" + profile?.username}">
+    <div>
+      <div class="profile-username">${profile?.username ?? ""}</div>
+      ${equippedTitleName ? `<div class="profile-title">${equippedTitleName}</div>` : ""}
+    </div>
+  `;
+
+  const { data: tiers } = await supabase
+    .from("user_tiers")
+    .select("subject, rating, solved_count")
+    .eq("user_id", user.id);
+
+  const totalSolved = (tiers ?? []).reduce((sum, t) => sum + t.solved_count, 0);
+
+  document.getElementById("stat-grid").innerHTML = `
+    <div class="stat-box"><div class="num">${totalSolved}</div><div class="label">총 푼 문제</div></div>
+    <div class="stat-box"><div class="num">🪙 ${profile?.coin_balance ?? 0}</div><div class="label">보유 코인</div></div>
+  `;
+
+  document.getElementById("tier-grid").innerHTML = SUBJECT_ORDER.filter(s => !SUBJECTS[s].disabled).map(subjectKey => {
+    const row = tiers?.find(t => t.subject === subjectKey);
+    const rating = row?.rating ?? 0;
+    const display = ratingToTierDisplay(rating);
+    return `
+      <div class="tier-card">
+        <div class="tier-card__subject">${SUBJECTS[subjectKey].icon} ${SUBJECTS[subjectKey].label} · ${row?.solved_count ?? 0}문제</div>
+        <span class="tier-badge tier-badge--lg" style="--tier-color:${display.color}">
+          <span class="tier-badge__hex"></span>${display.label}
+        </span>
+        <div class="tier-card__bar"><div class="tier-card__bar-fill" style="width:${display.progressPct}%; --tier-color:${display.color}"></div></div>
+        <div class="tier-card__remaining">${display.isMax ? "최고 티어 달성" : `다음 승급까지 레이팅 ${Math.ceil(display.remaining)} 남음`}</div>
+      </div>
+    `;
+  }).join("");
+
+  const { data: userTitles } = await supabase
+    .from("user_titles")
+    .select("titles(id, name)")
+    .eq("user_id", user.id);
+
+  const titlesEl = document.getElementById("titles-list");
+  if (!userTitles || userTitles.length === 0) {
+    titlesEl.innerHTML = `<div class="empty-state" style="padding:24px;">아직 획득한 칭호가 없어요.</div>`;
+  } else {
+    titlesEl.innerHTML = userTitles.map(ut => `
+      <button class="btn btn--ghost" data-title-id="${ut.titles.id}" style="font-size:13px;">${ut.titles.name}</button>
+    `).join("");
+
+    titlesEl.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await supabase.from("profiles").update({ equipped_title_id: btn.dataset.titleId }).eq("id", user.id);
+        loadProfile();
+      });
+    });
+  }
+}
+
+loadProfile();
+</script>
+</body>
+</html>

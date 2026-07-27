@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>문제 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px;">
+  <h1>문제</h1>
+  <div id="subject-tabs" class="subject-tabs"></div>
+  <div class="card" style="padding:0; overflow:hidden;">
+    <table class="problem-table">
+      <thead>
+        <tr><th style="width:36px;"></th><th style="width:120px;">티어</th><th>제목</th><th style="width:90px;">유형</th></tr>
+      </thead>
+      <tbody id="problem-rows"></tbody>
+    </table>
+    <div id="empty" class="empty-state" style="display:none;">아직 등록된 문제가 없어요.</div>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+let currentSubject = "math";
+
+function renderTabs() {
+  const el = document.getElementById("subject-tabs");
+  el.innerHTML = SUBJECT_ORDER.map(key => {
+    const s = SUBJECTS[key];
+    return `<button class="subject-tab ${key === currentSubject ? "active" : ""}" data-subject="${key}" ${s.disabled ? "disabled" : ""}>
+      ${s.icon} ${s.label} ${s.disabled ? '<span class="badge-soon">향후 개설</span>' : ""}
+    </button>`;
+  }).join("");
+
+  el.querySelectorAll(".subject-tab:not([disabled])").forEach(btn => {
+    btn.addEventListener("click", () => {
+      currentSubject = btn.dataset.subject;
+      renderTabs();
+      loadProblems();
+    });
+  });
+}
+
+async function loadProblems() {
+  const rowsEl = document.getElementById("problem-rows");
+  const emptyEl = document.getElementById("empty");
+  rowsEl.innerHTML = "";
+
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data: problems, error } = await supabase
+    .from("problems")
+    .select("id, title, tier_level, answer_type")
+    .eq("subject", currentSubject)
+    .order("tier_level", { ascending: true });
+
+  if (error || !problems || problems.length === 0) {
+    emptyEl.style.display = "block";
+    return;
+  }
+  emptyEl.style.display = "none";
+
+  let solvedIds = new Set();
+  if (user) {
+    const { data: solved } = await supabase
+      .from("solved_problems")
+      .select("problem_id")
+      .eq("user_id", user.id);
+    solvedIds = new Set((solved ?? []).map(s => s.problem_id));
+  }
+
+  rowsEl.innerHTML = problems.map(p => {
+    const tier = tierLevelToInfo(p.tier_level);
+    const solved = solvedIds.has(p.id);
+    return `
+      <tr onclick="window.location.href='problem.html?id=${p.id}'" style="cursor:pointer;">
+        <td class="${solved ? "problem-row-solved" : ""}">${solved ? "✓" : ""}</td>
+        <td><span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span></td>
+        <td class="problem-row-title">${p.title}</td>
+        <td style="color:var(--text-muted); font-size:13px;">${p.answer_type === "objective" ? "객관식" : "주관식"}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+(async function init() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("subject") && SUBJECTS[params.get("subject")] && !SUBJECTS[params.get("subject")].disabled) {
+    currentSubject = params.get("subject");
+  }
+  await renderNav("problems");
+  renderTabs();
+  loadProblems();
+})();
+</script>
+</body>
+</html>

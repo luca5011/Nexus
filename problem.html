@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>문제 풀이 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px; max-width:720px;">
+  <div id="tier-line" style="margin-bottom:8px;"></div>
+  <h1 id="title">불러오는 중...</h1>
+  <div id="content" class="problem-content"></div>
+
+  <div id="answer-area"></div>
+
+  <div id="result" class="result-banner"></div>
+
+  <button id="submit-btn" class="btn btn--primary" style="margin-top:8px;">제출</button>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+const problemId = new URLSearchParams(window.location.search).get("id");
+let answerType = null;
+let selectedChoiceId = null;
+
+async function loadProblem() {
+  await renderNav("problems");
+
+  if (!problemId) {
+    document.getElementById("title").textContent = "문제를 찾을 수 없어요.";
+    return;
+  }
+
+  const { data: p, error } = await supabase
+    .from("problems")
+    .select("id, title, content, tier_level, answer_type, subject")
+    .eq("id", problemId)
+    .single();
+
+  if (error || !p) {
+    document.getElementById("title").textContent = "문제를 찾을 수 없어요.";
+    return;
+  }
+
+  answerType = p.answer_type;
+  const tier = tierLevelToInfo(p.tier_level);
+
+  document.getElementById("tier-line").innerHTML = `
+    <span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span>
+    <span style="color:var(--text-faint); margin-left:8px; font-size:13px;">${SUBJECTS[p.subject].label}</span>
+  `;
+  document.getElementById("title").textContent = p.title;
+  document.getElementById("content").textContent = p.content;
+
+  const answerArea = document.getElementById("answer-area");
+
+  if (p.answer_type === "objective") {
+    const { data: choices } = await supabase
+      .from("problem_choices")
+      .select("id, choice_text, choice_order")
+      .eq("problem_id", p.id)
+      .order("choice_order", { ascending: true });
+
+    answerArea.innerHTML = (choices ?? []).map(c => `
+      <div class="choice-option" data-id="${c.id}">
+        <span>${c.choice_text}</span>
+      </div>
+    `).join("");
+
+    answerArea.querySelectorAll(".choice-option").forEach(el => {
+      el.addEventListener("click", () => {
+        answerArea.querySelectorAll(".choice-option").forEach(o => o.classList.remove("selected"));
+        el.classList.add("selected");
+        selectedChoiceId = el.dataset.id;
+      });
+    });
+  } else {
+    answerArea.innerHTML = `
+      <div class="field">
+        <label for="subjective-input">답 입력</label>
+        <input id="subjective-input" type="text" placeholder="정답을 입력하세요 (띄어쓰기/대소문자 무관)">
+      </div>
+    `;
+  }
+}
+
+async function submitAnswer() {
+  const user = await requireAuth();
+  if (!user) return;
+
+  let answer = "";
+  if (answerType === "objective") {
+    if (!selectedChoiceId) { alert("보기를 선택해주세요."); return; }
+    answer = selectedChoiceId;
+  } else {
+    answer = document.getElementById("subjective-input").value.trim();
+    if (!answer) { alert("답을 입력해주세요."); return; }
+  }
+
+  const btn = document.getElementById("submit-btn");
+  btn.disabled = true;
+  btn.textContent = "채점 중...";
+
+  const { data, error } = await supabase.rpc("submit_answer", {
+    p_problem_id: problemId,
+    p_answer: answer,
+  });
+
+  btn.disabled = false;
+  btn.textContent = "제출";
+
+  const resultEl = document.getElementById("result");
+  resultEl.style.display = "block";
+
+  if (error) {
+    resultEl.className = "result-banner result-banner--wrong";
+    resultEl.textContent = "제출 중 오류가 발생했어요: " + error.message;
+    return;
+  }
+
+  const row = data[0];
+  if (row.is_correct) {
+    let text = row.already_solved ? "정답이에요! (이미 풀었던 문제라 레이팅 변동은 없어요)" : "정답이에요! 🎉";
+    if (!row.already_solved) {
+      text += ` 레이팅 ${Math.round(row.new_rating)}`;
+      if (row.leveled_up) text += ` · ${tierLevelToInfo(row.new_tier_level).label} 승급!`;
+      if (row.coins_awarded > 0) text += ` · 코인 +${row.coins_awarded}`;
+    }
+    resultEl.className = "result-banner result-banner--correct";
+    resultEl.textContent = text;
+  } else {
+    resultEl.className = "result-banner result-banner--wrong";
+    resultEl.textContent = "오답이에요. 다시 시도해보세요.";
+  }
+}
+
+document.getElementById("submit-btn").addEventListener("click", submitAnswer);
+loadProblem();
+</script>
+</body>
+</html>

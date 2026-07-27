@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>개발자노트 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px; max-width:680px;">
+  <h1>개발자노트</h1>
+  <p>업데이트 소식과 운영자의 이야기를 전해드려요.</p>
+  <div id="notes"></div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+async function loadNotes() {
+  await renderNav("devnotes");
+
+  const { data: notes, error } = await supabase
+    .from("dev_notes")
+    .select("id, title, content, created_at")
+    .order("created_at", { ascending: false });
+
+  const el = document.getElementById("notes");
+  if (error || !notes || notes.length === 0) {
+    el.innerHTML = `<div class="empty-state">아직 작성된 노트가 없어요.</div>`;
+    return;
+  }
+
+  el.innerHTML = notes.map(n => `
+    <div class="note-card">
+      <div class="note-date">${new Date(n.created_at).toLocaleDateString("ko-KR")}</div>
+      <h3>${n.title}</h3>
+      <p style="white-space:pre-wrap;">${n.content}</p>
+    </div>
+  `).join("");
+}
+
+loadNotes();
+</script>
+</body>
+</html>

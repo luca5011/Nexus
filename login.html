@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>로그인 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="container-narrow" style="padding-top:56px;">
+  <h1>로그인</h1>
+
+  <form id="login-form" class="card">
+    <div class="field">
+      <label for="email">이메일</label>
+      <input id="email" type="email" required placeholder="you@example.com">
+    </div>
+    <div class="field">
+      <label for="password">비밀번호</label>
+      <input id="password" type="password" required placeholder="비밀번호">
+    </div>
+    <button type="submit" class="btn btn--primary btn--block">로그인</button>
+    <div id="msg" class="form-msg"></div>
+  </form>
+
+  <p style="margin-top:16px; text-align:center;">계정이 없나요? <a href="signup.html" style="color:var(--accent)">회원가입</a></p>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+renderNav(null);
+
+document.getElementById("login-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("msg");
+  msg.textContent = "";
+  msg.className = "form-msg";
+
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    msg.textContent = "로그인 실패: " + error.message;
+    msg.classList.add("form-msg--error");
+    return;
+  }
+
+  window.location.href = "index.html";
+});
+</script>
+</body>
+</html>
