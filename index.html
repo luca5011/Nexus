@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>멀티과목 OJ</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page">
+  <section class="hero">
+    <h1>수학, 과학, 국어를 <br>백준처럼 <span style="color:var(--accent)">풀고 성장</span>하세요.</h1>
+    <p class="sub">과목별 독립 티어, Elo 기반 레이팅, 승급 보상 코인까지 — 문제를 풀수록 쌓이는 나만의 실력 그래프.</p>
+    <div id="hero-cta"></div>
+    <div id="tier-grid" class="tier-grid"></div>
+  </section>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+async function initHome() {
+  await renderNav("home");
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const ctaEl = document.getElementById("hero-cta");
+  const gridEl = document.getElementById("tier-grid");
+
+  if (!user) {
+    ctaEl.innerHTML = `
+      <a class="btn btn--primary" href="signup.html" style="margin-top:10px;">지금 시작하기</a>
+      <a class="btn btn--ghost" href="problems.html" style="margin-top:10px;">문제 둘러보기</a>
+    `;
+    gridEl.innerHTML = "";
+    return;
+  }
+
+  const { data: tiers } = await supabase
+    .from("user_tiers")
+    .select("subject, rating, solved_count")
+    .eq("user_id", user.id);
+
+  gridEl.innerHTML = SUBJECT_ORDER.filter(s => !SUBJECTS[s].disabled).map(subjectKey => {
+    const row = tiers?.find(t => t.subject === subjectKey);
+    const rating = row?.rating ?? 0;
+    const display = ratingToTierDisplay(rating);
+    return `
+      <div class="tier-card">
+        <div class="tier-card__subject">${SUBJECTS[subjectKey].icon} ${SUBJECTS[subjectKey].label}</div>
+        <span class="tier-badge tier-badge--lg" style="--tier-color:${display.color}">
+          <span class="tier-badge__hex"></span>${display.label}
+        </span>
+        <div class="tier-card__bar"><div class="tier-card__bar-fill" style="width:${display.progressPct}%; --tier-color:${display.color}"></div></div>
+        <div class="tier-card__remaining">${display.isMax ? "최고 티어 달성" : `다음 승급까지 레이팅 ${Math.ceil(display.remaining)} 남음`}</div>
+      </div>
+    `;
+  }).join("");
+}
+initHome();
+</script>
+</body>
+</html>
