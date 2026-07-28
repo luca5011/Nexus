@@ -11,8 +11,21 @@
 <body>
 <div id="nav-root"></div>
 
-<main class="page" style="padding-top:32px;">
+<main class="page" style="padding-top:0;">
+  <div id="profile-banner" class="profile-banner"></div>
   <div id="profile-header" class="profile-header"></div>
+
+  <div id="avatar-edit" style="display:none; margin-bottom:20px;" class="card">
+    <div class="field">
+      <label>프로필 사진 URL 변경</label>
+      <div style="display:flex; gap:8px;">
+        <input id="avatar-url-input" type="text" placeholder="https://... 이미지 주소">
+        <button id="avatar-save-btn" class="btn btn--primary" style="white-space:nowrap;">저장</button>
+      </div>
+    </div>
+    <div id="avatar-msg" class="form-msg"></div>
+  </div>
+
   <div id="stat-grid" class="stat-grid"></div>
 
   <h2 style="margin-top:32px;">과목별 티어</h2>
@@ -20,6 +33,11 @@
 
   <h2 style="margin-top:32px;">보유 칭호</h2>
   <div id="titles-list" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+
+  <div id="inventory-section" style="display:none;">
+    <h2 style="margin-top:32px;">보유 배경 &amp; 테마</h2>
+    <div id="inventory-list" class="shop-grid"></div>
+  </div>
 </main>
 
 <script src="js/supabase-client.js"></script>
@@ -28,25 +46,47 @@
 <script>
 async function loadProfile() {
   await renderNav("profile");
-  const user = await requireAuth();
-  if (!user) return;
+
+  const { data: { user: authUser } } = await sb.auth.getUser();
+  const params = new URLSearchParams(window.location.search);
+  const targetId = params.get("id") || authUser?.id;
+
+  if (!targetId) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  const isOwnProfile = !!authUser && authUser.id === targetId;
 
   const { data: profile } = await sb
     .from("profiles")
-    .select("username, avatar_url, coin_balance, equipped_title_id")
-    .eq("id", user.id)
+    .select("username, avatar_url, coin_balance, equipped_title_id, equipped_background_id")
+    .eq("id", targetId)
     .single();
 
+  if (!profile) {
+    document.getElementById("profile-header").innerHTML = `<p style="color:var(--text-muted);">유저를 찾을 수 없어요.</p>`;
+    return;
+  }
+
   let equippedTitleName = "";
-  if (profile?.equipped_title_id) {
+  if (profile.equipped_title_id) {
     const { data: t } = await sb.from("titles").select("name").eq("id", profile.equipped_title_id).single();
     equippedTitleName = t?.name ?? "";
   }
 
+  const bannerEl = document.getElementById("profile-banner");
+  if (profile.equipped_background_id) {
+    const { data: bg } = await sb.from("shop_items").select("image_url").eq("id", profile.equipped_background_id).single();
+    if (bg?.image_url) {
+      bannerEl.style.backgroundImage = `url(${bg.image_url})`;
+    }
+  }
+
   document.getElementById("profile-header").innerHTML = `
-    <img class="profile-avatar" src="${profile?.avatar_url || "https://api.dicebear.com/7.x/shapes/svg?seed=" + profile?.username}">
+    <img class="profile-avatar" src="${profile.avatar_url || "https://api.dicebear.com/7.x/shapes/svg?seed=" + profile.username}">
     <div>
-      <div class="profile-username">${profile?.username ?? ""}</div>
+      <div class="profile-username">${profile.username ?? ""}</div>
       ${equippedTitleName ? `<div class="profile-title">${equippedTitleName}</div>` : ""}
     </div>
   `;
@@ -54,13 +94,13 @@ async function loadProfile() {
   const { data: tiers } = await sb
     .from("user_tiers")
     .select("subject, rating, solved_count")
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   const totalSolved = (tiers ?? []).reduce((sum, t) => sum + t.solved_count, 0);
 
   document.getElementById("stat-grid").innerHTML = `
     <div class="stat-box"><div class="num">${totalSolved}</div><div class="label">총 푼 문제</div></div>
-    <div class="stat-box"><div class="num">🪙 ${profile?.coin_balance ?? 0}</div><div class="label">보유 코인</div></div>
+    <div class="stat-box"><div class="num">🪙 ${profile.coin_balance ?? 0}</div><div class="label">보유 코인</div></div>
   `;
 
   document.getElementById("tier-grid").innerHTML = SUBJECT_ORDER.filter(s => !SUBJECTS[s].disabled).map(subjectKey => {
@@ -82,22 +122,77 @@ async function loadProfile() {
   const { data: userTitles } = await sb
     .from("user_titles")
     .select("titles(id, name)")
-    .eq("user_id", user.id);
+    .eq("user_id", targetId);
 
   const titlesEl = document.getElementById("titles-list");
   if (!userTitles || userTitles.length === 0) {
     titlesEl.innerHTML = `<div class="empty-state" style="padding:24px;">아직 획득한 칭호가 없어요.</div>`;
   } else {
     titlesEl.innerHTML = userTitles.map(ut => `
-      <button class="btn btn--ghost" data-title-id="${ut.titles.id}" style="font-size:13px;">${ut.titles.name}</button>
+      <button class="btn ${isOwnProfile ? "btn--ghost" : "btn--ghost"}" data-title-id="${ut.titles.id}" style="font-size:13px; ${isOwnProfile ? "" : "cursor:default;"}">${ut.titles.name}</button>
     `).join("");
 
-    titlesEl.querySelectorAll("button").forEach(btn => {
-      btn.addEventListener("click", async () => {
-        await sb.from("profiles").update({ equipped_title_id: btn.dataset.titleId }).eq("id", user.id);
-        loadProfile();
+    if (isOwnProfile) {
+      titlesEl.querySelectorAll("button").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          await sb.from("profiles").update({ equipped_title_id: btn.dataset.titleId }).eq("id", targetId);
+          loadProfile();
+        });
       });
+    }
+  }
+
+  // 본인 프로필일 때만: 아바타 변경 + 보유 배경/테마 장착
+  if (isOwnProfile) {
+    const avatarEditEl = document.getElementById("avatar-edit");
+    avatarEditEl.style.display = "block";
+    const avatarInput = document.getElementById("avatar-url-input");
+    avatarInput.value = profile.avatar_url ?? "";
+
+    document.getElementById("avatar-save-btn").addEventListener("click", async () => {
+      const msg = document.getElementById("avatar-msg");
+      const newUrl = avatarInput.value.trim();
+      const { error } = await sb.from("profiles").update({ avatar_url: newUrl }).eq("id", targetId);
+      msg.textContent = error ? error.message : "프로필 사진을 변경했어요.";
+      msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
+      if (!error) loadProfile();
     });
+
+    const invSectionEl = document.getElementById("inventory-section");
+    const invListEl = document.getElementById("inventory-list");
+
+    const { data: inventory } = await sb
+      .from("user_inventory")
+      .select("shop_items(id, name, type, image_url)")
+      .eq("user_id", targetId);
+
+    if (inventory && inventory.length > 0) {
+      invSectionEl.style.display = "block";
+      invListEl.innerHTML = inventory.map(inv => {
+        const item = inv.shop_items;
+        const isEquipped = item.type === "background"
+          ? profile.equipped_background_id === item.id
+          : profile.equipped_theme_id === item.id;
+        return `
+          <div class="shop-item">
+            <div class="shop-item__preview" style="${item.image_url ? `background-image:url(${item.image_url}); background-size:cover;` : ""}"></div>
+            <strong>${item.name}</strong>
+            <span style="font-size:12px; color:var(--text-muted);">${item.type === "background" ? "프로필 배경" : "테마"}</span>
+            <button class="btn ${isEquipped ? "btn--ghost" : "btn--primary"}" data-item-id="${item.id}" data-item-type="${item.type}" ${isEquipped ? "disabled" : ""}>
+              ${isEquipped ? "장착중" : "장착하기"}
+            </button>
+          </div>
+        `;
+      }).join("");
+
+      invListEl.querySelectorAll("button[data-item-id]").forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const field = btn.dataset.itemType === "background" ? "equipped_background_id" : "equipped_theme_id";
+          await sb.from("profiles").update({ [field]: btn.dataset.itemId }).eq("id", targetId);
+          loadProfile();
+        });
+      });
+    }
   }
 }
 
