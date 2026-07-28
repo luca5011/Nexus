@@ -371,37 +371,31 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
 .rank-num { font-family: var(--font-mono); color: var(--text-faint); width: 40px; }
 
 /* ---- 프로필 ---- */
+.profile-banner {
+  height: 200px;
+  border-radius: var(--radius);
+  background-color: var(--surface-hi);
+  background-size: cover;
+  background-position: center;
+  margin-top: 20px;
+  border: 1px solid var(--border);
+}
 .profile-header {
   display: flex;
   gap: 20px;
   align-items: center;
   padding: 24px 0;
+  margin-top: -56px;
+  padding-left: 20px;
 }
 .profile-avatar {
   width: 84px; height: 84px;
   border-radius: 50%;
   background: var(--surface-hi);
-  border: 2px solid var(--border);
+  border: 3px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--border);
   object-fit: cover;
 }
-.profile-username { font-family: var(--font-display); font-size: 24px; }
-.profile-title { font-size: 13px; color: var(--accent); margin-top: 2px; }
-
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 12px;
-  margin: 20px 0;
-}
-.stat-box {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 14px;
-  text-align: center;
-}
-.stat-box .num { font-family: var(--font-mono); font-size: 20px; font-weight: 700; }
-.stat-box .label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 
 /* ---- 상점 ---- */
 .shop-grid {
