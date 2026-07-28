@@ -54,7 +54,7 @@ async function loadRanking() {
 
   const { data, error } = await sb
     .from("user_tiers")
-    .select("rating, solved_count, profiles(username)")
+    .select("user_id, rating, solved_count, profiles(username)")
     .eq("subject", currentSubject)
     .order("rating", { ascending: false })
     .limit(100);
@@ -68,7 +68,7 @@ async function loadRanking() {
   rowsEl.innerHTML = data.map((row, i) => {
     const tier = ratingToTierDisplay(row.rating);
     return `
-      <tr>
+      <tr onclick="window.location.href='profile.html?id=${row.user_id}'" style="cursor:pointer;">
         <td class="rank-num">${i + 1}</td>
         <td>${row.profiles?.username ?? "알 수 없음"}</td>
         <td><span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span></td>
@@ -78,7 +78,7 @@ async function loadRanking() {
     `;
   }).join("");
 }
-
+  
 (async function init() {
   await renderNav("ranking");
   renderTabs();
