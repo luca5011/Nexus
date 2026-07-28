@@ -1,7 +1,7 @@
 // 모든 페이지 상단에 <div id="nav-root"></div> 를 두고 이 스크립트를 불러오면
 // 로그인 상태에 맞는 네비게이션 바를 그려줍니다.
 
-async function renderNav(activePage) {
+function escapeHtml(str) {  return String(str ?? "").replace(/[&<>"']/g, (ch) => ({    "&": "&amp;",    "<": "&lt;",    ">": "&gt;",    '"': "&quot;",    "'": "&#39;",  }[ch]));}async function renderNav(activePage) {
   const root = document.getElementById("nav-root");
   if (!root) return;
 
@@ -39,7 +39,7 @@ async function renderNav(activePage) {
 
     rightHtml = `
       <span class="coin-pill">🪙 ${profile?.coin_balance ?? 0}</span>
-      <a href="profile.html">${profile?.username ?? "프로필"}</a>
+      <a href="profile.html">${escapeHtml(profile?.username) || "프로필"}</a>
       <button class="btn btn--ghost" id="logout-btn" style="padding:6px 12px;">로그아웃</button>
     `;
   } else {
