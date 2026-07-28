@@ -60,7 +60,7 @@ async function loadProblems() {
     .from("problems")
     .select("id, title, tier_level, answer_type")
     .eq("subject", currentSubject)
-    .order("tier_level", { ascending: true });
+    .order("created_at", { ascending: true });
 
   if (error || !problems || problems.length === 0) {
     emptyEl.style.display = "block";
