@@ -38,8 +38,8 @@ async function loadNotes() {
   el.innerHTML = notes.map(n => `
     <div class="note-card">
       <div class="note-date">${new Date(n.created_at).toLocaleDateString("ko-KR")}</div>
-      <h3>${n.title}</h3>
-      <p style="white-space:pre-wrap;">${n.content}</p>
+      <h3>${escapeHtml(n.title)}</h3>
+      <p style="white-space:pre-wrap;">${escapeHtml(n.content)}</p>
     </div>
   `).join("");
 }
