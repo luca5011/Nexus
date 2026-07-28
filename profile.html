@@ -84,10 +84,10 @@ async function loadProfile() {
   }
 
   document.getElementById("profile-header").innerHTML = `
-    <img class="profile-avatar" src="${profile.avatar_url || "https://api.dicebear.com/7.x/shapes/svg?seed=" + profile.username}">
+    <img class="profile-avatar" src="${(profile.avatar_url && /^https?:\/\//i.test(profile.avatar_url)) ? escapeHtml(profile.avatar_url) : "https://api.dicebear.com/7.x/shapes/svg?seed=" + encodeURIComponent(profile.username || "")}">
     <div>
-      <div class="profile-username">${profile.username ?? ""}</div>
-      ${equippedTitleName ? `<div class="profile-title">${equippedTitleName}</div>` : ""}
+      <div class="profile-username">${escapeHtml(profile.username)}</div>
+      ${equippedTitleName ? `<div class="profile-title">${escapeHtml(equippedTitleName)}</div>` : ""}
     </div>
   `;
 
@@ -129,7 +129,7 @@ async function loadProfile() {
     titlesEl.innerHTML = `<div class="empty-state" style="padding:24px;">아직 획득한 칭호가 없어요.</div>`;
   } else {
     titlesEl.innerHTML = userTitles.map(ut => `
-      <button class="btn ${isOwnProfile ? "btn--ghost" : "btn--ghost"}" data-title-id="${ut.titles.id}" style="font-size:13px; ${isOwnProfile ? "" : "cursor:default;"}">${ut.titles.name}</button>
+      <button class="btn ${isOwnProfile ? "btn--ghost" : "btn--ghost"}" data-title-id="${ut.titles.id}" style="font-size:13px; ${isOwnProfile ? "" : "cursor:default;"}">${escapeHtml(ut.titles.name)}</button>
     `).join("");
 
     if (isOwnProfile) {
@@ -175,8 +175,8 @@ async function loadProfile() {
           : profile.equipped_theme_id === item.id;
         return `
           <div class="shop-item">
-            <div class="shop-item__preview" style="${item.image_url ? `background-image:url(${item.image_url}); background-size:cover;` : ""}"></div>
-            <strong>${item.name}</strong>
+            <div class="shop-item__preview" style="${item.image_url ? `background-image:url(${escapeHtml(item.image_url)}); background-size:cover;` : ""}"></div>
+            <strong>${escapeHtml(item.name)}</strong>
             <span style="font-size:12px; color:var(--text-muted);">${item.type === "background" ? "프로필 배경" : "테마"}</span>
             <button class="btn ${isEquipped ? "btn--ghost" : "btn--primary"}" data-item-id="${item.id}" data-item-type="${item.type}" ${isEquipped ? "disabled" : ""}>
               ${isEquipped ? "장착중" : "장착하기"}
