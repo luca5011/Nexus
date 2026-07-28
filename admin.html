@@ -111,6 +111,29 @@
     </section>
 
     <section class="admin-section">
+  <h2>상점 아이템 추가</h2>
+  <form id="shop-item-form" class="card">
+    <div class="field">
+      <label>종류</label>
+      <select id="s-type">
+        <option value="background">프로필 배경</option>
+        <option value="theme">테마</option>
+      </select>
+    </div>
+    <div class="field"><label>이름</label><input id="s-name" type="text" required></div>
+    <div class="field"><label>설명 (선택)</label><input id="s-description" type="text"></div>
+    <div class="field"><label>가격 (코인)</label><input id="s-price" type="number" min="1" required></div>
+    <div class="field">
+      <label>이미지 URL (배경 미리보기/배너에 사용돼요)</label>
+      <input id="s-image-url" type="text" placeholder="https://...">
+    </div>
+
+    <button type="submit" class="btn btn--primary">아이템 추가</button>
+    <div id="shop-item-msg" class="form-msg"></div>
+  </form>
+</section>
+
+    <section class="admin-section">
       <h2>계정 관리</h2>
       <div class="card">
         <div class="field">
