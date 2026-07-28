@@ -51,9 +51,33 @@
           <div class="field"><label>정답 (대소문자/공백 무시하고 비교돼요)</label><input id="p-correct-text" type="text"></div>
         </div>
 
-        <button type="submit" class="btn btn--primary">문제 등록</button>
+        <button type="submit" id="problem-submit-btn" class="btn btn--primary">문제 등록</button>
+        <button type="button" id="problem-cancel-edit-btn" class="btn btn--ghost" style="display:none;">수정 취소</button>
         <div id="problem-msg" class="form-msg"></div>
       </form>
+    </section>
+
+    <section class="admin-section">
+      <h2>문제 목록</h2>
+      <div class="card">
+        <div class="field">
+          <label>과목 필터</label>
+          <select id="pl-subject-filter">
+            <option value="">전체</option>
+            <option value="math">수학</option>
+            <option value="science">과학</option>
+            <option value="korean">국어</option>
+            <option value="coding">코딩</option>
+          </select>
+        </div>
+      </div>
+      <div class="card" style="padding:0; overflow:hidden; margin-top:12px;">
+        <table class="problem-table">
+          <thead><tr><th>과목</th><th>티어</th><th>제목</th><th>유형</th><th style="width:70px;"></th></tr></thead>
+          <tbody id="problem-list-rows"></tbody>
+        </table>
+        <div id="problem-list-empty" class="empty-state" style="display:none;">등록된 문제가 없어요.</div>
+      </div>
     </section>
 
     <section class="admin-section">
@@ -111,27 +135,27 @@
     </section>
 
     <section class="admin-section">
-  <h2>상점 아이템 추가</h2>
-  <form id="shop-item-form" class="card">
-    <div class="field">
-      <label>종류</label>
-      <select id="s-type">
-        <option value="background">프로필 배경</option>
-        <option value="theme">테마</option>
-      </select>
-    </div>
-    <div class="field"><label>이름</label><input id="s-name" type="text" required></div>
-    <div class="field"><label>설명 (선택)</label><input id="s-description" type="text"></div>
-    <div class="field"><label>가격 (코인)</label><input id="s-price" type="number" min="1" required></div>
-    <div class="field">
-      <label>이미지 URL (배경 미리보기/배너에 사용돼요)</label>
-      <input id="s-image-url" type="text" placeholder="https://...">
-    </div>
+      <h2>상점 아이템 추가</h2>
+      <form id="shop-item-form" class="card">
+        <div class="field">
+          <label>종류</label>
+          <select id="s-type">
+            <option value="background">프로필 배경</option>
+            <option value="theme">테마</option>
+          </select>
+        </div>
+        <div class="field"><label>이름</label><input id="s-name" type="text" required></div>
+        <div class="field"><label>설명 (선택)</label><input id="s-description" type="text"></div>
+        <div class="field"><label>가격 (코인)</label><input id="s-price" type="number" min="1" required></div>
+        <div class="field">
+          <label>이미지 URL (배경 미리보기/배너에 사용돼요)</label>
+          <input id="s-image-url" type="text" placeholder="https://...">
+        </div>
 
-    <button type="submit" class="btn btn--primary">아이템 추가</button>
-    <div id="shop-item-msg" class="form-msg"></div>
-  </form>
-</section>
+        <button type="submit" class="btn btn--primary">아이템 추가</button>
+        <div id="shop-item-msg" class="form-msg"></div>
+      </form>
+    </section>
 
     <section class="admin-section">
       <h2>계정 관리</h2>
@@ -225,7 +249,20 @@ async function init() {
     document.getElementById("t-manual-fields").style.display = v === "manual" ? "block" : "none";
   });
 
-  // 문제 등록
+  // 문제 등록 / 수정
+  let editingProblemId = null;
+
+  function resetProblemForm() {
+    editingProblemId = null;
+    document.getElementById("problem-form").reset();
+    document.getElementById("objective-fields").style.display = "block";
+    document.getElementById("subjective-fields").style.display = "none";
+    document.getElementById("problem-submit-btn").textContent = "문제 등록";
+    document.getElementById("problem-cancel-edit-btn").style.display = "none";
+  }
+
+  document.getElementById("problem-cancel-edit-btn").addEventListener("click", resetProblemForm);
+
   document.getElementById("problem-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const msg = document.getElementById("problem-msg");
@@ -237,13 +274,29 @@ async function init() {
     const content = document.getElementById("p-content").value.trim();
     const answer_type = document.getElementById("p-answer-type").value;
 
-    const { data: problem, error: pErr } = await sb
-      .from("problems")
-      .insert({ subject, tier_level, title, content, answer_type, created_by: user.id })
-      .select()
-      .single();
+    let problem;
 
-    if (pErr) { msg.textContent = pErr.message; msg.classList.add("form-msg--error"); return; }
+    if (editingProblemId) {
+      const { data, error: pErr } = await sb
+        .from("problems")
+        .update({ subject, tier_level, title, content, answer_type })
+        .eq("id", editingProblemId)
+        .select()
+        .single();
+      if (pErr) { msg.textContent = pErr.message; msg.classList.add("form-msg--error"); return; }
+      problem = data;
+
+      // 기존 보기는 지우고 새로 등록 (레이팅/제출 기록은 그대로 둠)
+      await sb.from("problem_choices").delete().eq("problem_id", problem.id);
+    } else {
+      const { data, error: pErr } = await sb
+        .from("problems")
+        .insert({ subject, tier_level, title, content, answer_type, created_by: user.id })
+        .select()
+        .single();
+      if (pErr) { msg.textContent = pErr.message; msg.classList.add("form-msg--error"); return; }
+      problem = data;
+    }
 
     if (answer_type === "objective") {
       const lines = document.getElementById("p-choices").value.split("\n").map(s => s.trim()).filter(Boolean);
@@ -254,16 +307,92 @@ async function init() {
       if (cErr) { msg.textContent = cErr.message; msg.classList.add("form-msg--error"); return; }
 
       const correctChoice = insertedChoices.find(c => c.choice_order === correctIndex);
-      await sb.from("problem_answers").insert({ problem_id: problem.id, correct_answer: correctChoice?.id ?? "" });
+      await sb.from("problem_answers")
+        .upsert({ problem_id: problem.id, correct_answer: correctChoice?.id ?? "" }, { onConflict: "problem_id" });
     } else {
       const correctText = document.getElementById("p-correct-text").value.trim();
-      await sb.from("problem_answers").insert({ problem_id: problem.id, correct_answer: correctText });
+      await sb.from("problem_answers")
+        .upsert({ problem_id: problem.id, correct_answer: correctText }, { onConflict: "problem_id" });
     }
 
-    msg.textContent = "문제가 등록됐어요.";
+    msg.textContent = editingProblemId ? "문제를 수정했어요." : "문제가 등록됐어요.";
     msg.classList.add("form-msg--success");
-    e.target.reset();
+    resetProblemForm();
+    loadProblemList();
   });
+
+  // 문제 목록 / 수정 진입
+  async function loadProblemList() {
+    const rowsEl = document.getElementById("problem-list-rows");
+    const emptyEl = document.getElementById("problem-list-empty");
+    const subjectFilter = document.getElementById("pl-subject-filter").value;
+    rowsEl.innerHTML = "";
+
+    let query = sb.from("problems").select("id, subject, tier_level, title, answer_type").order("created_at", { ascending: false });
+    if (subjectFilter) query = query.eq("subject", subjectFilter);
+
+    const { data: problems, error } = await query;
+
+    if (error || !problems || problems.length === 0) {
+      emptyEl.style.display = "block";
+      return;
+    }
+    emptyEl.style.display = "none";
+
+    rowsEl.innerHTML = problems.map(p => {
+      const tier = tierLevelToInfo(p.tier_level);
+      return `
+        <tr>
+          <td style="color:var(--text-muted); font-size:13px;">${SUBJECTS[p.subject]?.label ?? p.subject}</td>
+          <td><span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span></td>
+          <td>${p.title}</td>
+          <td style="color:var(--text-muted); font-size:13px;">${p.answer_type === "objective" ? "객관식" : "주관식"}</td>
+          <td><button class="btn btn--ghost" data-edit-id="${p.id}" style="font-size:13px; padding:6px 10px;">수정</button></td>
+        </tr>
+      `;
+    }).join("");
+
+    rowsEl.querySelectorAll("button[data-edit-id]").forEach(btn => {
+      btn.addEventListener("click", () => loadProblemIntoForm(btn.dataset.editId));
+    });
+  }
+
+  async function loadProblemIntoForm(problemId) {
+    const { data: problem } = await sb.from("problems").select("*").eq("id", problemId).single();
+    if (!problem) return;
+
+    editingProblemId = problem.id;
+    document.getElementById("p-subject").value = problem.subject;
+    document.getElementById("p-tier").value = problem.tier_level;
+    document.getElementById("p-title").value = problem.title;
+    document.getElementById("p-content").value = problem.content;
+    document.getElementById("p-answer-type").value = problem.answer_type;
+
+    const isObjective = problem.answer_type === "objective";
+    document.getElementById("objective-fields").style.display = isObjective ? "block" : "none";
+    document.getElementById("subjective-fields").style.display = isObjective ? "none" : "block";
+
+    if (isObjective) {
+      const { data: choices } = await sb.from("problem_choices").select("choice_order, choice_text").eq("problem_id", problem.id).order("choice_order");
+      const { data: answer } = await sb.from("problem_answers").select("correct_answer").eq("problem_id", problem.id).single();
+
+      document.getElementById("p-choices").value = (choices ?? []).map(c => c.choice_text).join("\n");
+      // 정답 보기의 순번(1부터) 찾기: problem_choices id 매칭이 필요하므로 다시 조회
+      const { data: choicesWithId } = await sb.from("problem_choices").select("id, choice_order").eq("problem_id", problem.id).order("choice_order");
+      const matchedIndex = (choicesWithId ?? []).findIndex(c => c.id === answer?.correct_answer);
+      document.getElementById("p-correct-index").value = matchedIndex >= 0 ? matchedIndex + 1 : 1;
+    } else {
+      const { data: answer } = await sb.from("problem_answers").select("correct_answer").eq("problem_id", problem.id).single();
+      document.getElementById("p-correct-text").value = answer?.correct_answer ?? "";
+    }
+
+    document.getElementById("problem-submit-btn").textContent = "문제 수정";
+    document.getElementById("problem-cancel-edit-btn").style.display = "inline-flex";
+    document.getElementById("problem-form").scrollIntoView({ behavior: "smooth" });
+  }
+
+  document.getElementById("pl-subject-filter").addEventListener("change", loadProblemList);
+  loadProblemList();
 
   // 개발자노트
   document.getElementById("note-form").addEventListener("submit", async (e) => {
@@ -278,27 +407,6 @@ async function init() {
     if (!error) e.target.reset();
   });
 
-  // 상점 아이템 등록
-  document.getElementById("shop-item-form").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const msg = document.getElementById("shop-item-msg");
-    const type = document.getElementById("s-type").value;
-    const name = document.getElementById("s-name").value.trim();
-    const description = document.getElementById("s-description").value.trim();
-    const price = parseInt(document.getElementById("s-price").value, 10);
-    const image_url = document.getElementById("s-image-url").value.trim();
-  
-    const { error } = await sb.from("shop_items").insert({
-      type, name, price,
-      description: description || null,
-      image_url: image_url || null,
-    });
-  
-    msg.textContent = error ? error.message : "아이템을 추가했어요.";
-    msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
-    if (!error) e.target.reset();
-  });
-  
   // 칭호 추가
   document.getElementById("title-form").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -320,6 +428,27 @@ async function init() {
 
     const { error } = await sb.from("titles").insert(row);
     msg.textContent = error ? error.message : "칭호를 추가했어요.";
+    msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
+    if (!error) e.target.reset();
+  });
+
+  // 상점 아이템 등록
+  document.getElementById("shop-item-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("shop-item-msg");
+    const type = document.getElementById("s-type").value;
+    const name = document.getElementById("s-name").value.trim();
+    const description = document.getElementById("s-description").value.trim();
+    const price = parseInt(document.getElementById("s-price").value, 10);
+    const image_url = document.getElementById("s-image-url").value.trim();
+
+    const { error } = await sb.from("shop_items").insert({
+      type, name, price,
+      description: description || null,
+      image_url: image_url || null,
+    });
+
+    msg.textContent = error ? error.message : "아이템을 추가했어요.";
     msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
     if (!error) e.target.reset();
   });
