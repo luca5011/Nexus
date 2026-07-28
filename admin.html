@@ -278,6 +278,27 @@ async function init() {
     if (!error) e.target.reset();
   });
 
+  // 상점 아이템 등록
+  document.getElementById("shop-item-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("shop-item-msg");
+    const type = document.getElementById("s-type").value;
+    const name = document.getElementById("s-name").value.trim();
+    const description = document.getElementById("s-description").value.trim();
+    const price = parseInt(document.getElementById("s-price").value, 10);
+    const image_url = document.getElementById("s-image-url").value.trim();
+  
+    const { error } = await sb.from("shop_items").insert({
+      type, name, price,
+      description: description || null,
+      image_url: image_url || null,
+    });
+  
+    msg.textContent = error ? error.message : "아이템을 추가했어요.";
+    msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
+    if (!error) e.target.reset();
+  });
+  
   // 칭호 추가
   document.getElementById("title-form").addEventListener("submit", async (e) => {
     e.preventDefault();
