@@ -71,7 +71,7 @@ async function loadProblem() {
 
     answerArea.innerHTML = (choices ?? []).map(c => `
       <div class="choice-option" data-id="${c.id}">
-        <span>${c.choice_text}</span>
+        <span>${escapeHtml(c.choice_text)}</span>
       </div>
     `).join("");
 
