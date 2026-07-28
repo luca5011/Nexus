@@ -75,6 +75,7 @@
             <option value="auto_tier">자동 - 티어 승급</option>
             <option value="auto_solved_count">자동 - 누적 풀이수</option>
             <option value="purchase">구매형</option>
+            <option value="manual">기타 (조건 직접 입력, 관리자가 수동 지급)</option>
           </select>
         </div>
         <div class="field"><label>칭호 이름</label><input id="t-name" type="text" required></div>
@@ -97,6 +98,12 @@
         <div id="t-price-fields" style="display:none;">
           <div class="field"><label>가격 (코인)</label><input id="t-price" type="number" min="1"></div>
         </div>
+        <div id="t-manual-fields" style="display:none;">
+          <div class="field">
+            <label>취득 조건 (자유 입력, 자동 지급 안 되고 참고용 설명이에요)</label>
+            <input id="t-condition" type="text" placeholder="예: 대회 1등 수상, 이벤트 참여 등">
+          </div>
+        </div>
 
         <button type="submit" class="btn btn--primary">칭호 추가</button>
         <div id="title-msg" class="form-msg"></div>
@@ -111,6 +118,31 @@
           <input id="user-search" type="text" placeholder="username 입력 후 Enter">
         </div>
         <div id="user-search-result"></div>
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2>유저에게 지급하기</h2>
+      <div class="card">
+        <div class="field">
+          <label>아이디로 검색</label>
+          <input id="grant-user-search" type="text" placeholder="username 입력 후 Enter">
+        </div>
+        <div id="grant-user-info" style="color:var(--text-muted); font-size:13px; margin-bottom:12px;"></div>
+
+        <div class="field">
+          <label>지급할 배경/테마</label>
+          <select id="grant-item-select"><option value="">-- 상점 아이템 목록 불러오는 중 --</option></select>
+        </div>
+        <button type="button" id="grant-item-btn" class="btn btn--primary" disabled>아이템 지급</button>
+
+        <div class="field" style="margin-top:20px;">
+          <label>지급할 칭호</label>
+          <select id="grant-title-select"><option value="">-- 칭호 목록 불러오는 중 --</option></select>
+        </div>
+        <button type="button" id="grant-title-btn" class="btn btn--primary" disabled>칭호 지급</button>
+
+        <div id="grant-msg" class="form-msg"></div>
       </div>
     </section>
 
@@ -167,6 +199,7 @@ async function init() {
     document.getElementById("t-tier-fields").style.display = v === "auto_tier" ? "block" : "none";
     document.getElementById("t-count-fields").style.display = v === "auto_solved_count" ? "block" : "none";
     document.getElementById("t-price-fields").style.display = v === "purchase" ? "block" : "none";
+    document.getElementById("t-manual-fields").style.display = v === "manual" ? "block" : "none";
   });
 
   // 문제 등록
@@ -235,8 +268,10 @@ async function init() {
       row.tier_level = parseInt(document.getElementById("t-tier-level").value, 10);
     } else if (acquire_type === "auto_solved_count") {
       row.solved_count_threshold = parseInt(document.getElementById("t-count").value, 10);
-    } else {
+    } else if (acquire_type === "purchase") {
       row.price = parseInt(document.getElementById("t-price").value, 10);
+    } else {
+      row.condition_description = document.getElementById("t-condition").value.trim();
     }
 
     const { error } = await sb.from("titles").insert(row);
@@ -279,6 +314,66 @@ async function init() {
         document.getElementById("user-search").dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
       });
     });
+  });
+
+  // 유저에게 지급하기
+  let grantTargetUserId = null;
+
+  const { data: shopItemsForGrant } = await sb.from("shop_items").select("id, name, type").order("name");
+  const itemSelect = document.getElementById("grant-item-select");
+  itemSelect.innerHTML = shopItemsForGrant && shopItemsForGrant.length > 0
+    ? shopItemsForGrant.map(i => `<option value="${i.id}">${i.name} (${i.type === "background" ? "배경" : "테마"})</option>`).join("")
+    : `<option value="">등록된 아이템이 없어요</option>`;
+
+  const { data: titlesForGrant } = await sb.from("titles").select("id, name").order("name");
+  const titleSelect = document.getElementById("grant-title-select");
+  titleSelect.innerHTML = titlesForGrant && titlesForGrant.length > 0
+    ? titlesForGrant.map(t => `<option value="${t.id}">${t.name}</option>`).join("")
+    : `<option value="">등록된 칭호가 없어요</option>`;
+
+  document.getElementById("grant-user-search").addEventListener("keydown", async (e) => {
+    if (e.key !== "Enter") return;
+    const username = e.target.value.trim();
+    const infoEl = document.getElementById("grant-user-info");
+    const itemBtn = document.getElementById("grant-item-btn");
+    const titleBtn = document.getElementById("grant-title-btn");
+
+    const { data: found } = await sb.from("profiles").select("id, username").ilike("username", username).limit(1).single();
+
+    if (!found) {
+      infoEl.textContent = "사용자를 찾을 수 없어요.";
+      grantTargetUserId = null;
+      itemBtn.disabled = true;
+      titleBtn.disabled = true;
+      return;
+    }
+
+    grantTargetUserId = found.id;
+    infoEl.textContent = `대상: ${found.username}`;
+    itemBtn.disabled = false;
+    titleBtn.disabled = false;
+  });
+
+  document.getElementById("grant-item-btn").addEventListener("click", async () => {
+    const msg = document.getElementById("grant-msg");
+    const itemId = itemSelect.value;
+    if (!grantTargetUserId || !itemId) return;
+
+    const { error } = await sb.from("user_inventory")
+      .upsert({ user_id: grantTargetUserId, item_id: itemId }, { onConflict: "user_id,item_id", ignoreDuplicates: true });
+    msg.textContent = error ? error.message : "아이템을 지급했어요.";
+    msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
+  });
+
+  document.getElementById("grant-title-btn").addEventListener("click", async () => {
+    const msg = document.getElementById("grant-msg");
+    const titleId = titleSelect.value;
+    if (!grantTargetUserId || !titleId) return;
+
+    const { error } = await sb.from("user_titles")
+      .upsert({ user_id: grantTargetUserId, title_id: titleId }, { onConflict: "user_id,title_id", ignoreDuplicates: true });
+    msg.textContent = error ? error.message : "칭호를 지급했어요.";
+    msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
   });
 
   // 제출 기록
