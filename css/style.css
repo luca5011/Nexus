@@ -231,6 +231,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; colo
   font-family: var(--font-display);
   font-weight: 600;
   color: var(--tier-color, var(--accent));
+  white-space: nowrap;
 }
 .tier-badge__hex {
   width: 12px;
