@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>문제집 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px;">
+  <h1 id="set-title">불러오는 중...</h1>
+  <p id="set-description"></p>
+  <p id="set-progress" style="color:var(--text-muted); font-size:14px;"></p>
+
+  <div class="card" style="padding:0; overflow:hidden; margin-top:16px;">
+    <table class="problem-table">
+      <thead>
+        <tr><th style="width:36px;"></th><th style="width:150px;">티어</th><th>제목</th><th style="width:90px;">과목</th></tr>
+      </thead>
+      <tbody id="problem-rows"></tbody>
+    </table>
+    <div id="empty" class="empty-state" style="display:none;">이 문제집에는 아직 문제가 없어요.</div>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+const setId = new URLSearchParams(window.location.search).get("id");
+
+async function loadProblemSet() {
+  await renderNav("problemsets");
+
+  if (!setId) {
+    document.getElementById("set-title").textContent = "문제집을 찾을 수 없어요.";
+    return;
+  }
+
+  const { data: set } = await sb.from("problem_sets").select("title, description").eq("id", setId).single();
+  if (!set) {
+    document.getElementById("set-title").textContent = "문제집을 찾을 수 없어요.";
+    return;
+  }
+
+  document.getElementById("set-title").textContent = set.title;
+  document.getElementById("set-description").textContent = set.description ?? "";
+
+  const { data: items } = await sb
+    .from("problem_set_items")
+    .select("problems(id, title, subject, tier_level)")
+    .eq("problem_set_id", setId);
+
+  const rowsEl = document.getElementById("problem-rows");
+  const emptyEl = document.getElementById("empty");
+
+  if (!items || items.length === 0) {
+    emptyEl.style.display = "block";
+    document.getElementById("set-progress").textContent = "";
+    return;
+  }
+  emptyEl.style.display = "none";
+
+  const problems = items.map(it => it.problems).filter(Boolean);
+
+  const { data: { user } } = await sb.auth.getUser();
+  let solvedIds = new Set();
+  if (user) {
+    const { data: solved } = await sb.from("solved_problems").select("problem_id").eq("user_id", user.id);
+    solvedIds = new Set((solved ?? []).map(s => s.problem_id));
+  }
+
+  const solvedCount = problems.filter(p => solvedIds.has(p.id)).length;
+  document.getElementById("set-progress").textContent = `${solvedCount} / ${problems.length} 완료`;
+
+  rowsEl.innerHTML = problems.map(p => {
+    const tier = tierLevelToInfo(p.tier_level);
+    const solved = solvedIds.has(p.id);
+    return `
+      <tr onclick="window.location.href='problem.html?id=${p.id}'" style="cursor:pointer;">
+        <td class="${solved ? "problem-row-solved" : ""}">${solved ? "✓" : ""}</td>
+        <td><span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span></td>
+        <td class="problem-row-title">${p.title}</td>
+        <td style="color:var(--text-muted); font-size:13px;">${SUBJECTS[p.subject]?.label ?? p.subject}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+loadProblemSet();
+</script>
+</body>
+</html>
