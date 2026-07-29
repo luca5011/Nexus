@@ -406,6 +406,99 @@ async function init() {
   document.getElementById("pl-subject-filter").addEventListener("change", loadProblemList);
   loadProblemList();
 
+  // 문제집 관리
+  document.getElementById("set-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("set-msg");
+    const title = document.getElementById("set-title-input").value.trim();
+    const description = document.getElementById("set-desc-input").value.trim();
+
+    const { error } = await sb.from("problem_sets").insert({ title, description: description || null, created_by: user.id });
+    msg.textContent = error ? error.message : "문제집을 만들었어요.";
+    msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
+    if (!error) { e.target.reset(); loadProblemSetsAdmin(); }
+  });
+
+  async function loadProblemSetsAdmin() {
+    const listEl = document.getElementById("sets-admin-list");
+    const { data: sets } = await sb.from("problem_sets").select("id, title, description").order("created_at", { ascending: true });
+    const { data: allProblems } = await sb.from("problems").select("id, title, subject").order("title");
+    const { data: allItems } = await sb.from("problem_set_items").select("problem_set_id, problem_id");
+
+    if (!sets || sets.length === 0) {
+      listEl.innerHTML = `<div class="empty-state">아직 만든 문제집이 없어요.</div>`;
+      return;
+    }
+
+    listEl.innerHTML = sets.map(set => {
+      const memberIds = new Set((allItems ?? []).filter(it => it.problem_set_id === set.id).map(it => it.problem_id));
+      const memberProblems = (allProblems ?? []).filter(p => memberIds.has(p.id));
+      const nonMemberProblems = (allProblems ?? []).filter(p => !memberIds.has(p.id));
+
+      return `
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:start; gap:10px;">
+            <div>
+              <strong>${set.title}</strong>
+              <p style="font-size:13px; margin:4px 0 0;">${set.description ?? ""}</p>
+            </div>
+            <button class="btn btn--danger" data-delete-set="${set.id}" style="font-size:13px; padding:6px 10px; white-space:nowrap;">문제집 삭제</button>
+          </div>
+
+          <div style="margin-top:14px; display:flex; gap:8px;">
+            <select data-add-select="${set.id}" style="flex:1; padding:10px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg); color:var(--text);">
+              <option value="">-- 추가할 문제 선택 --</option>
+              ${nonMemberProblems.map(p => `<option value="${p.id}">[${SUBJECTS[p.subject]?.label ?? p.subject}] ${p.title}</option>`).join("")}
+            </select>
+            <button class="btn btn--primary" data-add-btn="${set.id}" style="white-space:nowrap;">추가</button>
+          </div>
+
+          <div style="margin-top:12px; display:flex; flex-direction:column; gap:6px;">
+            ${memberProblems.length === 0
+              ? `<span style="color:var(--text-faint); font-size:13px;">포함된 문제가 없어요.</span>`
+              : memberProblems.map(p => `
+                <div style="display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:var(--radius-sm); font-size:13px;">
+                  <span style="flex:1;">[${SUBJECTS[p.subject]?.label ?? p.subject}] ${p.title}</span>
+                  <button class="btn btn--ghost" data-remove-set="${set.id}" data-remove-problem="${p.id}" style="font-size:12px; padding:4px 8px;">제거</button>
+                </div>
+              `).join("")}
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    listEl.querySelectorAll("button[data-delete-set]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("이 문제집을 삭제할까요?")) return;
+        await sb.from("problem_sets").delete().eq("id", btn.dataset.deleteSet);
+        loadProblemSetsAdmin();
+      });
+    });
+
+    listEl.querySelectorAll("button[data-add-btn]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const setId = btn.dataset.addBtn;
+        const select = listEl.querySelector(`select[data-add-select="${setId}"]`);
+        const problemId = select.value;
+        if (!problemId) return;
+        await sb.from("problem_set_items").insert({ problem_set_id: setId, problem_id: problemId });
+        loadProblemSetsAdmin();
+      });
+    });
+
+    listEl.querySelectorAll("button[data-remove-problem]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        await sb.from("problem_set_items")
+          .delete()
+          .eq("problem_set_id", btn.dataset.removeSet)
+          .eq("problem_id", btn.dataset.removeProblem);
+        loadProblemSetsAdmin();
+      });
+    });
+  }
+
+  loadProblemSetsAdmin();
+
   // 개발자노트
   document.getElementById("note-form").addEventListener("submit", async (e) => {
     e.preventDefault();
