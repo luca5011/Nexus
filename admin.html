@@ -56,28 +56,17 @@
         <div id="problem-msg" class="form-msg"></div>
       </form>
     </section>
-
+    
     <section class="admin-section">
-      <h2>문제 목록</h2>
-      <div class="card">
-        <div class="field">
-          <label>과목 필터</label>
-          <select id="pl-subject-filter">
-            <option value="">전체</option>
-            <option value="math">수학</option>
-            <option value="science">과학</option>
-            <option value="korean">국어</option>
-            <option value="coding">코딩</option>
-          </select>
-        </div>
-      </div>
-      <div class="card" style="padding:0; overflow:hidden; margin-top:12px;">
-        <table class="problem-table">
-          <thead><tr><th>과목</th><th>티어</th><th>제목</th><th>유형</th><th style="width:70px;"></th></tr></thead>
-          <tbody id="problem-list-rows"></tbody>
-        </table>
-        <div id="problem-list-empty" class="empty-state" style="display:none;">등록된 문제가 없어요.</div>
-      </div>
+      <h2>문제집 관리</h2>
+      <form id="set-form" class="card">
+        <div class="field"><label>문제집 이름</label><input id="set-title-input" type="text" required></div>
+        <div class="field"><label>설명 (선택)</label><input id="set-desc-input" type="text"></div>
+        <button type="submit" class="btn btn--primary">문제집 만들기</button>
+        <div id="set-msg" class="form-msg"></div>
+      </form>
+    
+      <div id="sets-admin-list" style="margin-top:16px; display:flex; flex-direction:column; gap:14px;"></div>
     </section>
 
     <section class="admin-section">
@@ -211,6 +200,29 @@
           <tbody id="submissions-rows"></tbody>
         </table>
         <div id="submissions-empty" class="empty-state" style="display:none;">제출 기록이 없어요.</div>
+      </div>
+    </section>
+
+    <section class="admin-section">
+      <h2>문제 목록</h2>
+      <div class="card">
+        <div class="field">
+          <label>과목 필터</label>
+          <select id="pl-subject-filter">
+            <option value="">전체</option>
+            <option value="math">수학</option>
+            <option value="science">과학</option>
+            <option value="korean">국어</option>
+            <option value="coding">코딩</option>
+          </select>
+        </div>
+      </div>
+      <div class="card" style="padding:0; overflow:hidden; margin-top:12px;">
+        <table class="problem-table">
+          <thead><tr><th>과목</th><th>티어</th><th>제목</th><th>유형</th><th style="width:70px;"></th></tr></thead>
+          <tbody id="problem-list-rows"></tbody>
+        </table>
+        <div id="problem-list-empty" class="empty-state" style="display:none;">등록된 문제가 없어요.</div>
       </div>
     </section>
 
