@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>문제집 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px;">
+  <h1>문제집</h1>
+  <p>여러 문제를 묶어놓은 세트예요. 순서 상관없이 아무거나 풀면 돼요.</p>
+
+  <div id="sets-grid" class="tier-grid" style="margin-top:24px;"></div>
+  <div id="empty" class="empty-state" style="display:none;">아직 등록된 문제집이 없어요.</div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+async function loadProblemSets() {
+  await renderNav("problemsets");
+
+  const { data: { user } } = await sb.auth.getUser();
+
+  const { data: sets } = await sb
+    .from("problem_sets")
+    .select("id, title, description")
+    .order("created_at", { ascending: true });
+
+  const gridEl = document.getElementById("sets-grid");
+  const emptyEl = document.getElementById("empty");
+
+  if (!sets || sets.length === 0) {
+    emptyEl.style.display = "block";
+    return;
+  }
+  emptyEl.style.display = "none";
+
+  const { data: items } = await sb.from("problem_set_items").select("problem_set_id, problem_id");
+
+  let solvedIds = new Set();
+  if (user) {
+    const { data: solved } = await sb.from("solved_problems").select("problem_id").eq("user_id", user.id);
+    solvedIds = new Set((solved ?? []).map(s => s.problem_id));
+  }
+
+  const bySet = {};
+  (items ?? []).forEach(it => {
+    if (!bySet[it.problem_set_id]) bySet[it.problem_set_id] = [];
+    bySet[it.problem_set_id].push(it.problem_id);
+  });
+
+  gridEl.innerHTML = sets.map(set => {
+    const problemIds = bySet[set.id] ?? [];
+    const total = problemIds.length;
+    const solvedCount = problemIds.filter(pid => solvedIds.has(pid)).length;
+    const pct = total > 0 ? Math.round((solvedCount / total) * 100) : 0;
+
+    return `
+      <a href="problemset.html?id=${set.id}" class="tier-card" style="text-decoration:none; display:block;">
+        <div class="tier-card__subject" style="font-size:16px; color:var(--text); font-weight:700; font-family:var(--font-display);">${set.title}</div>
+        <p style="font-size:13px; margin:8px 0 0;">${set.description ?? ""}</p>
+        <div class="tier-card__bar" style="margin-top:16px;"><div class="tier-card__bar-fill" style="width:${pct}%; --tier-color:var(--accent)"></div></div>
+        <div class="tier-card__remaining">${solvedCount} / ${total} 완료</div>
+      </a>
+    `;
+  }).join("");
+}
+
+loadProblemSets();
+</script>
+</body>
+</html>
