@@ -57,6 +57,7 @@ function escapeHtml(str) {  return String(str ?? "").replace(/[&<>"']/g, (ch) =>
         ${links.map(l => `<a href="${l.href}" class="${activePage === l.key ? "active" : ""}">${l.label}</a>`).join("")}
       </div>
       <div class="nav__right">
+        <a href="https://discord.gg/CBY9XKY4d" target="_blank" rel="noopener" class="btn btn--ghost" style="padding:6px 10px; background:#5865F2; border:none; color:#fff;" title="Discord">Discord</a>
         <button id="theme-toggle" class="btn btn--ghost" style="padding:6px 10px;" title="다크/라이트 모드 전환"></button>
         ${rightHtml}
       </div>
