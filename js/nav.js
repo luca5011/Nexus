@@ -26,11 +26,12 @@ function escapeHtml(str) {  return String(str ?? "").replace(/[&<>"']/g, (ch) =>
 
   const links = [
     { href: "problems.html", label: "문제", key: "problems" },
+    { href: "problemsets.html", label: "문제집", key: "problemsets" },
     { href: "ranking.html", label: "랭킹", key: "ranking" },
     { href: "shop.html", label: "상점", key: "shop" },
     { href: "devnotes.html", label: "개발자노트", key: "devnotes" },
   ];
-
+  
   let rightHtml = "";
   if (user) {
     if (profile?.is_admin) {
