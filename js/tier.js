@@ -11,7 +11,7 @@ const SUBJECTS = {
 
 const SUBJECT_ORDER = ["coding", "math", "science", "korean"];
 
-// 5대 티어, 각 3단계(III -> II -> I 순으로 승급)
+// 6대 티어, 각 3단계(III -> II -> I 순으로 승급)
 const TIER_NAMES = ["Origin", "Apex", "Zenith", "Infinity", "Transcendent", "Omniscient"];
 const SUB_RANKS = ["III", "II", "I"];
 const RATING_PER_LEVEL = 150;
