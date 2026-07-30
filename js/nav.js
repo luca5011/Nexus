@@ -1,7 +1,7 @@
 // 모든 페이지 상단에 <div id="nav-root"></div> 를 두고 이 스크립트를 불러오면
 // 로그인 상태에 맞는 네비게이션 바를 그려줍니다.
 
-function escapeHtml(str) {  return String(str ?? "").replace(/[&<>"']/g, (ch) => ({    "&": "&amp;",    "<": "&lt;",    ">": "&gt;",    '"': "&quot;",    "'": "&#39;",  }[ch]));}async function renderNav(activePage) {
+async function renderNav(activePage) {
   const root = document.getElementById("nav-root");
   if (!root) return;
 
@@ -15,7 +15,7 @@ function escapeHtml(str) {  return String(str ?? "").replace(/[&<>"']/g, (ch) =>
     if (user) {
       const { data: p } = await sb
         .from("profiles")
-        .select("username, coin_balance, is_admin")
+        .select("username, coin_balance, is_admin, is_super_admin")
         .eq("id", user.id)
         .single();
       profile = p;
@@ -27,20 +27,24 @@ function escapeHtml(str) {  return String(str ?? "").replace(/[&<>"']/g, (ch) =>
   const links = [
     { href: "problems.html", label: "문제", key: "problems" },
     { href: "problemsets.html", label: "문제집", key: "problemsets" },
+    { href: "contests.html", label: "대회", key: "contests" },
     { href: "ranking.html", label: "랭킹", key: "ranking" },
     { href: "shop.html", label: "상점", key: "shop" },
     { href: "devnotes.html", label: "개발자노트", key: "devnotes" },
   ];
-  
+
   let rightHtml = "";
   if (user) {
-    if (profile?.is_admin) {
+    if (profile?.is_admin || profile?.is_super_admin) {
       links.push({ href: "admin.html", label: "관리자", key: "admin" });
+    }
+    if (profile?.is_super_admin) {
+      links.push({ href: "superadmin.html", label: "총관리자", key: "superadmin" });
     }
 
     rightHtml = `
       <span class="coin-pill">🪙 ${profile?.coin_balance ?? 0}</span>
-      <a href="profile.html">${escapeHtml(profile?.username) || "프로필"}</a>
+      <a href="profile.html">${profile?.username ?? "프로필"}</a>
       <button class="btn btn--ghost" id="logout-btn" style="padding:6px 12px;">로그아웃</button>
     `;
   } else {
