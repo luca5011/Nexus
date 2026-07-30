@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>대회 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px; max-width:760px;">
+  <h1 id="contest-title">불러오는 중...</h1>
+  <p id="contest-description"></p>
+  <p id="contest-time" style="color:var(--text-muted); font-size:13px; font-family:var(--font-mono);"></p>
+  <p id="contest-status" style="font-weight:700; font-size:14px;"></p>
+
+  <div id="not-started-msg" class="empty-state" style="display:none;">대회가 아직 시작되지 않았어요.</div>
+
+  <div id="contest-body" style="display:none;">
+    <h2 style="margin-top:32px;">문제</h2>
+    <div class="card" style="padding:0; overflow:hidden;">
+      <table class="problem-table">
+        <thead><tr><th style="width:36px;"></th><th id="tier-col-header" style="width:150px; display:none;">티어</th><th>제목</th><th style="width:90px;">과목</th></tr></thead>
+        <tbody id="problem-rows"></tbody>
+      </table>
+    </div>
+
+    <h2 style="margin-top:32px;">리더보드</h2>
+    <div class="card" style="padding:0; overflow:hidden;">
+      <table class="rank-table">
+        <thead><tr><th>순위</th><th>유저</th><th>정답 수</th><th>마지막 정답 시각</th></tr></thead>
+        <tbody id="leaderboard-rows"></tbody>
+      </table>
+      <div id="leaderboard-empty" class="empty-state" style="display:none;">아직 정답을 맞춘 사람이 없어요.</div>
+    </div>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+const contestId = new URLSearchParams(window.location.search).get("id");
+
+async function loadContest() {
+  await renderNav("contests");
+
+  if (!contestId) {
+    document.getElementById("contest-title").textContent = "대회를 찾을 수 없어요.";
+    return;
+  }
+
+  const { data: contest } = await sb.from("contests").select("title, description, starts_at, ends_at").eq("id", contestId).single();
+  if (!contest) {
+    document.getElementById("contest-title").textContent = "대회를 찾을 수 없어요.";
+    return;
+  }
+
+  const starts = new Date(contest.starts_at);
+  const ends = new Date(contest.ends_at);
+  const now = new Date();
+  const status = now < starts ? "예정" : (now > ends ? "종료" : "진행중");
+  const hasEnded = now > ends;
+  const hasStarted = now >= starts;
+
+  document.getElementById("contest-title").textContent = contest.title;
+  document.getElementById("contest-description").textContent = contest.description ?? "";
+  document.getElementById("contest-time").textContent = `${starts.toLocaleString("ko-KR")} ~ ${ends.toLocaleString("ko-KR")}`;
+
+  const statusColor = status === "진행중" ? "var(--success)" : (status === "예정" ? "var(--accent)" : "var(--text-faint)");
+  const statusEl = document.getElementById("contest-status");
+  statusEl.textContent = `[${status}]`;
+  statusEl.style.color = statusColor;
+
+  if (!hasStarted) {
+    document.getElementById("not-started-msg").style.display = "block";
+    return;
+  }
+  document.getElementById("contest-body").style.display = "block";
+
+  const { data: problems } = await sb
+    .from("problems")
+    .select("id, title, subject, tier_level")
+    .eq("contest_id", contestId)
+    .order("created_at", { ascending: true });
+
+  const { data: { user } } = await sb.auth.getUser();
+  let solvedIds = new Set();
+  if (user) {
+    const { data: solved } = await sb.from("solved_problems").select("problem_id").eq("user_id", user.id);
+    solvedIds = new Set((solved ?? []).map(s => s.problem_id));
+  }
+
+  if (hasEnded) {
+    document.getElementById("tier-col-header").style.display = "table-cell";
+  }
+
+  const rowsEl = document.getElementById("problem-rows");
+  rowsEl.innerHTML = (problems ?? []).map(p => {
+    const solved = solvedIds.has(p.id);
+    const tierCell = hasEnded
+      ? (() => { const t = tierLevelToInfo(p.tier_level); return `<td><span class="tier-badge tier-badge--sm" style="--tier-color:${t.color}"><span class="tier-badge__hex"></span>${t.label}</span></td>`; })()
+      : "";
+    return `
+      <tr onclick="window.location.href='problem.html?id=${p.id}'" style="cursor:pointer;">
+        <td class="${solved ? "problem-row-solved" : ""}">${solved ? "✓" : ""}</td>
+        ${tierCell}
+        <td class="problem-row-title">${p.title}</td>
+        <td style="color:var(--text-muted); font-size:13px;">${SUBJECTS[p.subject]?.label ?? p.subject}</td>
+      </tr>
+    `;
+  }).join("");
+
+  // 리더보드: 정답 수 desc, 동점이면 마지막 정답 시각 asc(먼저 마감한 사람이 위)
+  const problemIds = (problems ?? []).map(p => p.id);
+  const leaderboardRowsEl = document.getElementById("leaderboard-rows");
+  const leaderboardEmptyEl = document.getElementById("leaderboard-empty");
+
+  if (problemIds.length === 0) {
+    leaderboardEmptyEl.style.display = "block";
+    return;
+  }
+
+  const { data: allSolves } = await sb
+    .from("solved_problems")
+    .select("user_id, problem_id, solved_at, profiles(username)")
+    .in("problem_id", problemIds);
+
+  if (!allSolves || allSolves.length === 0) {
+    leaderboardEmptyEl.style.display = "block";
+    return;
+  }
+
+  const byUser = {};
+  allSolves.forEach(s => {
+    if (!byUser[s.user_id]) {
+      byUser[s.user_id] = { username: s.profiles?.username ?? "알 수 없음", count: 0, lastSolveAt: null };
+    }
+    byUser[s.user_id].count += 1;
+    const t = new Date(s.solved_at);
+    if (!byUser[s.user_id].lastSolveAt || t > byUser[s.user_id].lastSolveAt) {
+      byUser[s.user_id].lastSolveAt = t;
+    }
+  });
+
+  const ranking = Object.values(byUser).sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.lastSolveAt - b.lastSolveAt;
+  });
+
+  leaderboardEmptyEl.style.display = "none";
+  leaderboardRowsEl.innerHTML = ranking.map((r, i) => `
+    <tr>
+      <td class="rank-num">${i + 1}</td>
+      <td>${r.username}</td>
+      <td style="font-family:var(--font-mono);">${r.count}</td>
+      <td style="color:var(--text-muted); font-size:13px; font-family:var(--font-mono);">${r.lastSolveAt.toLocaleString("ko-KR")}</td>
+    </tr>
+  `).join("");
+}
+
+loadContest();
+</script>
+</body>
+</html>
