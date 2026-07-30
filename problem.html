@@ -41,7 +41,7 @@ async function loadProblem() {
 
   const { data: p, error } = await sb
     .from("problems")
-    .select("id, title, content, tier_level, answer_type, subject")
+    .select("id, title, content, tier_level, answer_type, subject, contest_id, contests(title, ends_at)")
     .eq("id", problemId)
     .single();
 
@@ -53,10 +53,17 @@ async function loadProblem() {
   answerType = p.answer_type;
   const tier = tierLevelToInfo(p.tier_level);
 
-  document.getElementById("tier-line").innerHTML = `
-    <span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span>
-    <span style="color:var(--text-faint); margin-left:8px; font-size:13px;">${SUBJECTS[p.subject].label}</span>
-  `;
+  const isActiveContestProblem = p.contest_id && p.contests && new Date(p.contests.ends_at) > new Date();
+
+  document.getElementById("tier-line").innerHTML = isActiveContestProblem
+    ? `
+      <span style="color:var(--accent); font-size:13px; font-weight:600;">${p.contests.title} 대회 문제</span>
+      <span style="color:var(--text-faint); margin-left:8px; font-size:13px;">${SUBJECTS[p.subject].label}</span>
+    `
+    : `
+      <span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span>
+      <span style="color:var(--text-faint); margin-left:8px; font-size:13px;">${SUBJECTS[p.subject].label}</span>
+    `;
   document.getElementById("title").textContent = p.title;
   document.getElementById("content").textContent = p.content;
 
@@ -71,7 +78,7 @@ async function loadProblem() {
 
     answerArea.innerHTML = (choices ?? []).map(c => `
       <div class="choice-option" data-id="${c.id}">
-        <span>${escapeHtml(c.choice_text)}</span>
+        <span>${c.choice_text}</span>
       </div>
     `).join("");
 
@@ -132,7 +139,7 @@ async function submitAnswer() {
 
   const row = data[0];
   if (row.is_correct) {
-    let text = row.already_solved ? "정답이에요! (이미 풀었던 문제라 레이팅 변동은 없어요)" : "정답이에요! 🎉";
+    let text = row.already_solved ? "정답이에요! (이미 풀었던 문제라 레이팅 변동은 없어요)" : "정답이에요!";
     if (!row.already_solved) {
       text += ` 레이팅 ${Math.round(row.new_rating)}`;
       if (row.leveled_up) text += ` · ${tierLevelToInfo(row.new_tier_level).label} 승급!`;
