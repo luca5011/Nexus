@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>대회 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px;">
+  <h1>대회</h1>
+  <p>정해진 시간 동안 열리는 특별 문제들이에요. 진행 중에는 티어가 가려지고, 끝나면 일반 문제로 공개돼요.</p>
+
+  <div id="contests-list" style="display:flex; flex-direction:column; gap:12px; margin-top:24px;"></div>
+  <div id="empty" class="empty-state" style="display:none;">아직 열린 대회가 없어요.</div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+async function loadContests() {
+  await renderNav("contests");
+
+  const { data: contests } = await sb
+    .from("contests")
+    .select("id, title, description, starts_at, ends_at")
+    .order("starts_at", { ascending: false });
+
+  const listEl = document.getElementById("contests-list");
+  const emptyEl = document.getElementById("empty");
+
+  if (!contests || contests.length === 0) {
+    emptyEl.style.display = "block";
+    return;
+  }
+  emptyEl.style.display = "none";
+
+  const now = new Date();
+
+  const statusInfo = {
+    "예정":   { color: "var(--accent)" },
+    "진행중": { color: "var(--success)" },
+    "종료":   { color: "var(--text-faint)" },
+  };
+
+  listEl.innerHTML = contests.map(c => {
+    const starts = new Date(c.starts_at);
+    const ends = new Date(c.ends_at);
+    const status = now < starts ? "예정" : (now > ends ? "종료" : "진행중");
+
+    return `
+      <a href="contest.html?id=${c.id}" class="card" style="display:block; text-decoration:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <strong style="font-family:var(--font-display); font-size:16px; color:var(--text);">${c.title}</strong>
+          <span style="font-size:12px; font-weight:700; color:${statusInfo[status].color};">${status}</span>
+        </div>
+        <p style="font-size:13px; margin:8px 0 0;">${c.description ?? ""}</p>
+        <div style="font-size:12px; color:var(--text-faint); margin-top:10px; font-family:var(--font-mono);">
+          ${starts.toLocaleString("ko-KR")} ~ ${ends.toLocaleString("ko-KR")}
+        </div>
+      </a>
+    `;
+  }).join("");
+}
+
+loadContests();
+</script>
+</body>
+</html>
