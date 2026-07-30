@@ -30,8 +30,8 @@
           </select>
         </div>
         <div class="field">
-          <label>티어 레벨 (0=Origin III ~ 14=Transcendent I)</label>
-          <input id="p-tier" type="number" min="0" max="14" value="0">
+          <label>티어 레벨 (0=Origin III ~ 17=Omniscient I)</label>
+          <input id="p-tier" type="number" min="0" max="17" value="0">
         </div>
         <div class="field"><label>제목</label><input id="p-title" type="text" required></div>
         <div class="field"><label>문제 내용</label><textarea id="p-content" rows="5" required></textarea></div>
@@ -56,7 +56,30 @@
         <div id="problem-msg" class="form-msg"></div>
       </form>
     </section>
-    
+
+    <section class="admin-section">
+      <h2>문제 목록</h2>
+      <div class="card">
+        <div class="field">
+          <label>과목 필터</label>
+          <select id="pl-subject-filter">
+            <option value="">전체</option>
+            <option value="math">수학</option>
+            <option value="science">과학</option>
+            <option value="korean">국어</option>
+            <option value="coding">코딩</option>
+          </select>
+        </div>
+      </div>
+      <div class="card" style="padding:0; overflow:hidden; margin-top:12px;">
+        <table class="problem-table">
+          <thead><tr><th>과목</th><th>티어</th><th>제목</th><th>유형</th><th style="width:70px;"></th></tr></thead>
+          <tbody id="problem-list-rows"></tbody>
+        </table>
+        <div id="problem-list-empty" class="empty-state" style="display:none;">등록된 문제가 없어요.</div>
+      </div>
+    </section>
+
     <section class="admin-section">
       <h2>문제집 관리</h2>
       <form id="set-form" class="card">
@@ -65,7 +88,7 @@
         <button type="submit" class="btn btn--primary">문제집 만들기</button>
         <div id="set-msg" class="form-msg"></div>
       </form>
-    
+
       <div id="sets-admin-list" style="margin-top:16px; display:flex; flex-direction:column; gap:14px;"></div>
     </section>
 
@@ -103,7 +126,7 @@
               <option value="coding">코딩</option>
             </select>
           </div>
-          <div class="field"><label>티어 레벨 (0~14)</label><input id="t-tier-level" type="number" min="0" max="14" value="0"></div>
+          <div class="field"><label>티어 레벨 (0~17)</label><input id="t-tier-level" type="number" min="0" max="17" value="0"></div>
         </div>
         <div id="t-count-fields" style="display:none;">
           <div class="field"><label>누적 풀이수 기준</label><input id="t-count" type="number" min="1"></div>
@@ -203,29 +226,6 @@
       </div>
     </section>
 
-    <section class="admin-section">
-      <h2>문제 목록</h2>
-      <div class="card">
-        <div class="field">
-          <label>과목 필터</label>
-          <select id="pl-subject-filter">
-            <option value="">전체</option>
-            <option value="math">수학</option>
-            <option value="science">과학</option>
-            <option value="korean">국어</option>
-            <option value="coding">코딩</option>
-          </select>
-        </div>
-      </div>
-      <div class="card" style="padding:0; overflow:hidden; margin-top:12px;">
-        <table class="problem-table">
-          <thead><tr><th>과목</th><th>티어</th><th>제목</th><th>유형</th><th style="width:70px;"></th></tr></thead>
-          <tbody id="problem-list-rows"></tbody>
-        </table>
-        <div id="problem-list-empty" class="empty-state" style="display:none;">등록된 문제가 없어요.</div>
-      </div>
-    </section>
-
   </div>
 </main>
 
@@ -238,8 +238,8 @@ async function init() {
   const user = await requireAuth();
   if (!user) return;
 
-  const { data: profile } = await sb.from("profiles").select("is_admin").eq("id", user.id).single();
-  if (!profile?.is_admin) {
+  const { data: profile } = await sb.from("profiles").select("is_admin, is_super_admin").eq("id", user.id).single();
+  if (!profile?.is_admin && !profile?.is_super_admin) {
     document.getElementById("guard-msg").innerHTML = `<p style="color:var(--danger)">관리자 계정만 접근할 수 있어요.</p>`;
     return;
   }
