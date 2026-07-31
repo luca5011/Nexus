@@ -11,7 +11,8 @@
 <body>
 <div id="nav-root"></div>
 
-<div style="display:flex; justify-content:flex-end; max-width:1040px; margin:0 auto; padding:10px 24px 0;">
+<div style="display:flex; justify-content:flex-end; gap:8px; max-width:1040px; margin:0 auto; padding:10px 24px 0;">
+  <a href="show_tier_list.html" class="btn btn--ghost" style="padding:5px 10px; font-size:12px;">전체 티어 목록</a>
   <a href="promo.html" class="btn btn--ghost" style="padding:5px 10px; font-size:12px;">홍보</a>
 </div>
 
@@ -46,7 +47,6 @@ if (!user) {
   ctaEl.innerHTML = `
     <a class="btn btn--primary" href="signup.html" style="margin-top:10px;">지금 시작하기</a>
     <a class="btn btn--ghost" href="problems.html" style="margin-top:10px;">문제 둘러보기</a>
-    <a class="btn btn--ghost" href="show_tier_list.html" style="margin-top:10px;">전체 티어 가이드</a>
   `;
   gridEl.innerHTML = "";
   return;
