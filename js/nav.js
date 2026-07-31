@@ -28,6 +28,7 @@ async function renderNav(activePage) {
     { href: "problems.html", label: "문제", key: "problems" },
     { href: "problemsets.html", label: "문제집", key: "problemsets" },
     { href: "contests.html", label: "대회", key: "contests" },
+    { href: "battles.html", label: "배틀", key: "battles" }, // 배틀 메뉴 추가
     { href: "ranking.html", label: "랭킹", key: "ranking" },
     { href: "show_tier_list.html", label: "티어 목록", key: "tiers" }, // 티어 메뉴 추가
     { href: "shop.html", label: "상점", key: "shop" },
