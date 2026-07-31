@@ -18,14 +18,15 @@
             margin-bottom: 40px;
             color: #e8c547;
         }
-        /* 티어 그리드 레이아웃 */
+        /* 티어 그리드 레이아웃: 화면 너비와 상관없이 무조건 한 줄에 3개 고정 */
         .tier-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            grid-template-columns: repeat(3, 1fr); /* 3열 고정 */
             gap: 20px;
             max-width: 1200px;
             margin: 0 auto;
         }
+
         /* 개별 티어 카드 */
         .tier-card {
             background-color: #2a2a35;
