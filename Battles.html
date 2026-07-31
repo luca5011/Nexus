@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>배틀 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px;">
+  <h1>배틀</h1>
+  <p>같은 과목을 고른 상대와 매칭돼서, 같은 문제를 먼저 맞히는 사람이 승리해요.</p>
+  <div id="subject-tabs" class="subject-tabs"></div>
+
+  <div class="card" style="margin-bottom:24px;">
+    <div id="rating-line" style="margin-bottom:14px; color:var(--text-muted); font-size:14px;"></div>
+    <button id="find-btn" class="btn btn--primary btn--block">상대 찾기</button>
+    <button id="cancel-btn" class="btn btn--block" style="display:none;">매칭 취소</button>
+    <div id="status-line" style="margin-top:12px; text-align:center; color:var(--text-faint); font-size:13px;"></div>
+  </div>
+
+  <h2>배틀 랭킹</h2>
+  <div class="card" style="padding:0; overflow:hidden;">
+    <table class="rank-table">
+      <thead><tr><th>순위</th><th>유저</th><th>레이팅</th><th>전적</th></tr></thead>
+      <tbody id="rank-rows"></tbody>
+    </table>
+    <div id="rank-empty" class="empty-state" style="display:none;">아직 배틀 기록이 없어요.</div>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+let currentSubject = "math";
+let searching = false;
+let pollTimer = null;
+
+function renderTabs() {
+  const el = document.getElementById("subject-tabs");
+  el.innerHTML = SUBJECT_ORDER.filter(k => !SUBJECTS[k].disabled).map(key => {
+    const s = SUBJECTS[key];
+    return `<button class="subject-tab ${key === currentSubject ? "active" : ""}" data-subject="${key}">${s.icon} ${s.label}</button>`;
+  }).join("");
+
+  el.querySelectorAll(".subject-tab").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (searching) return; // 매칭 중엔 과목 전환 막기
+      currentSubject = btn.dataset.subject;
+      renderTabs();
+      loadRating();
+      loadLeaderboard();
+    });
+  });
+}
+
+async function loadRating() {
+  const { data: { user } } = await sb.auth.getUser();
+  const line = document.getElementById("rating-line");
+  if (!user) {
+    line.textContent = "로그인하면 배틀 레이팅이 표시돼요.";
+    return;
+  }
+  const { data } = await sb
+    .from("battle_ratings")
+    .select("rating, wins, losses")
+    .eq("user_id", user.id)
+    .eq("subject", currentSubject)
+    .maybeSingle();
+  line.textContent = data
+    ? `내 배틀 레이팅: ${Math.round(data.rating)} (${data.wins}승 ${data.losses}패)`
+    : "내 배틀 레이팅: 1000 (첫 대결이에요)";
+}
+
+async function loadLeaderboard() {
+  const rowsEl = document.getElementById("rank-rows");
+  const emptyEl = document.getElementById("rank-empty");
+  rowsEl.innerHTML = "";
+
+  const { data, error } = await sb
+    .from("battle_ratings")
+    .select("user_id, rating, wins, losses, profiles(username)")
+    .eq("subject", currentSubject)
+    .order("rating", { ascending: false })
+    .limit(50);
+
+  if (error || !data || data.length === 0) {
+    emptyEl.style.display = "block";
+    return;
+  }
+  emptyEl.style.display = "none";
+
+  rowsEl.innerHTML = data.map((row, i) => `
+    <tr onclick="window.location.href='profile.html?id=${row.user_id}'" style="cursor:pointer;">
+      <td class="rank-num">${i + 1}</td>
+      <td>${row.profiles?.username ?? "알 수 없음"}</td>
+      <td style="font-family:var(--font-mono);">${Math.round(row.rating)}</td>
+      <td style="color:var(--text-muted);">${row.wins}승 ${row.losses}패</td>
+    </tr>
+  `).join("");
+}
+
+async function startSearch() {
+  const user = await requireAuth();
+  if (!user) return;
+
+  searching = true;
+  document.getElementById("find-btn").style.display = "none";
+  document.getElementById("cancel-btn").style.display = "block";
+  document.getElementById("status-line").textContent = "상대를 찾는 중...";
+
+  await tryMatch();
+  pollTimer = setInterval(tryMatch, 2500);
+}
+
+async function tryMatch() {
+  if (!searching) return;
+  const { data, error } = await sb.rpc("join_battle_queue", { p_subject: currentSubject });
+
+  if (error) {
+    document.getElementById("status-line").textContent = "오류: " + error.message;
+    stopSearch();
+    return;
+  }
+  if (data && data.length > 0 && data[0].battle_id) {
+    stopSearch();
+    window.location.href = "battle.html?id=" + data[0].battle_id;
+  }
+}
+
+async function cancelSearch() {
+  stopSearch();
+  await sb.rpc("leave_battle_queue");
+  document.getElementById("status-line").textContent = "매칭을 취소했어요.";
+}
+
+function stopSearch() {
+  searching = false;
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = null;
+  document.getElementById("find-btn").style.display = "block";
+  document.getElementById("cancel-btn").style.display = "none";
+}
+
+window.addEventListener("beforeunload", () => {
+  if (searching) sb.rpc("leave_battle_queue");
+});
+
+document.getElementById("find-btn").addEventListener("click", startSearch);
+document.getElementById("cancel-btn").addEventListener("click", cancelSearch);
+
+(async function init() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("subject") && SUBJECTS[params.get("subject")] && !SUBJECTS[params.get("subject")].disabled) {
+    currentSubject = params.get("subject");
+  }
+  await renderNav("battles");
+  renderTabs();
+  await loadRating();
+  await loadLeaderboard();
+})();
+</script>
+</body>
+</html>

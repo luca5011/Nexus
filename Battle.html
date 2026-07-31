@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>배틀 진행중 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div id="nav-root"></div>
+<main class="page" style="padding-top:32px; max-width:720px;">
+  <div id="battle-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+    <span id="vs-line" style="font-weight:600;">상대를 기다리는 중...</span>
+    <span id="live-badge" style="color:var(--accent); font-size:13px; font-weight:600;">● 진행중</span>
+  </div>
+
+  <div id="tier-line" style="margin-bottom:8px;"></div>
+  <h1 id="title">불러오는 중...</h1>
+  <div id="content" class="problem-content"></div>
+  <div id="answer-area"></div>
+  <div id="result" class="result-banner"></div>
+  <button id="submit-btn" class="btn btn--primary" style="margin-top:8px;">제출</button>
+
+  <div style="margin-top:24px;">
+    <a href="battles.html" class="btn" style="width:100%; display:block; text-align:center;">배틀 목록으로</a>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+const battleId = new URLSearchParams(window.location.search).get("id");
+let problemId = null;
+let answerType = null;
+let selectedChoiceId = null;
+let myUserId = null;
+let opponentName = "상대";
+let battleFinished = false;
+let pollTimer = null;
+
+async function loadBattleAndProblem() {
+  await renderNav("battles");
+
+  if (!battleId) {
+    document.getElementById("title").textContent = "배틀을 찾을 수 없어요.";
+    return;
+  }
+
+  const user = await requireAuth();
+  if (!user) return;
+  myUserId = user.id;
+
+  const { data: battle, error } = await sb
+    .from("battles")
+    .select("*")
+    .eq("id", battleId)
+    .single();
+
+  if (error || !battle) {
+    document.getElementById("title").textContent = "배틀을 찾을 수 없어요.";
+    return;
+  }
+
+  if (battle.player1_id !== myUserId && battle.player2_id !== myUserId) {
+    document.getElementById("title").textContent = "이 배틀에 참가하지 않았어요.";
+    return;
+  }
+
+  problemId = battle.problem_id;
+  const opponentId = battle.player1_id === myUserId ? battle.player2_id : battle.player1_id;
+  const { data: opponentProfile } = await sb
+    .from("profiles")
+    .select("username")
+    .eq("id", opponentId)
+    .single();
+  opponentName = opponentProfile?.username ?? "상대";
+
+  applyBattleState(battle);
+
+  const { data: p } = await sb
+    .from("problems")
+    .select("id, title, content, tier_level, answer_type, subject")
+    .eq("id", problemId)
+    .single();
+
+  if (!p) {
+    document.getElementById("title").textContent = "문제를 찾을 수 없어요.";
+    return;
+  }
+
+  answerType = p.answer_type;
+  const tier = tierLevelToInfo(p.tier_level);
+  document.getElementById("tier-line").innerHTML = `
+    <span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span>
+    <span style="color:var(--text-faint); margin-left:8px; font-size:13px;">${(typeof SUBJECTS === "object" && SUBJECTS[p.subject]) ? SUBJECTS[p.subject].label : p.subject}</span>
+  `;
+  document.getElementById("title").textContent = p.title;
+  document.getElementById("content").textContent = p.content;
+
+  const answerArea = document.getElementById("answer-area");
+  if (p.answer_type === "objective") {
+    const { data: choices } = await sb
+      .from("problem_choices")
+      .select("id, choice_text, choice_order")
+      .eq("problem_id", p.id)
+      .order("choice_order", { ascending: true });
+    answerArea.innerHTML = (choices ?? []).map(c => `
+      <div class="choice-option" data-id="${c.id}">
+        <span>${c.choice_text}</span>
+      </div>
+    `).join("");
+    answerArea.querySelectorAll(".choice-option").forEach(el => {
+      el.addEventListener("click", () => {
+        if (battleFinished) return;
+        answerArea.querySelectorAll(".choice-option").forEach(o => o.classList.remove("selected"));
+        el.classList.add("selected");
+        selectedChoiceId = el.dataset.id;
+      });
+    });
+  } else {
+    answerArea.innerHTML = `
+      <div class="field">
+        <label for="subjective-input">답 입력</label>
+        <input id="subjective-input" type="text" placeholder="정답을 입력하세요 (띄어쓰기/대소문자 무관)">
+      </div>
+    `;
+  }
+
+  pollTimer = setInterval(pollBattle, 2000);
+}
+
+function applyBattleState(battle) {
+  document.getElementById("vs-line").textContent = `${opponentName}님과 대결중 · 먼저 맞히면 승리!`;
+
+  if (battle.status === "finished") {
+    battleFinished = true;
+    if (pollTimer) clearInterval(pollTimer);
+    document.getElementById("live-badge").textContent = "● 종료";
+    document.getElementById("live-badge").style.color = "var(--text-faint)";
+    document.getElementById("submit-btn").disabled = true;
+    document.getElementById("submit-btn").textContent = "배틀 종료";
+
+    const resultEl = document.getElementById("result");
+    resultEl.style.display = "block";
+    if (battle.winner_id === myUserId) {
+      resultEl.className = "result-banner result-banner--correct";
+      resultEl.textContent = "승리했어요! 배틀 레이팅이 올랐어요.";
+    } else {
+      resultEl.className = "result-banner result-banner--wrong";
+      resultEl.textContent = `${opponentName}님이 먼저 정답을 맞혔어요. 다음 배틀에서 다시 도전해보세요.`;
+    }
+  }
+}
+
+async function pollBattle() {
+  if (battleFinished) return;
+  const { data: battle } = await sb.from("battles").select("*").eq("id", battleId).single();
+  if (battle) applyBattleState(battle);
+}
+
+async function submitAnswer() {
+  if (battleFinished) return;
+  const user = await requireAuth();
+  if (!user) return;
+
+  let answer = "";
+  if (answerType === "objective") {
+    if (!selectedChoiceId) { alert("보기를 선택해주세요."); return; }
+    answer = selectedChoiceId;
+  } else {
+    answer = document.getElementById("subjective-input").value.trim();
+    if (!answer) { alert("답을 입력해주세요."); return; }
+  }
+
+  const btn = document.getElementById("submit-btn");
+  btn.disabled = true;
+  btn.textContent = "채점 중...";
+
+  const { data, error } = await sb.rpc("submit_answer", {
+    p_problem_id: problemId,
+    p_answer: answer,
+  });
+
+  btn.disabled = false;
+  btn.textContent = "제출";
+
+  const resultEl = document.getElementById("result");
+  resultEl.style.display = "block";
+
+  if (error) {
+    resultEl.className = "result-banner result-banner--wrong";
+    resultEl.textContent = "제출 중 오류가 발생했어요: " + error.message;
+    return;
+  }
+
+  const row = data[0];
+  if (row.is_correct) {
+    const { data: bres, error: berr } = await sb.rpc("record_battle_result", { p_battle_id: battleId });
+    if (!berr && bres && bres.length > 0) {
+      const r = bres[0];
+      battleFinished = true;
+      if (pollTimer) clearInterval(pollTimer);
+      document.getElementById("submit-btn").disabled = true;
+      document.getElementById("submit-btn").textContent = "배틀 종료";
+      document.getElementById("live-badge").textContent = "● 종료";
+      if (r.is_winner) {
+        resultEl.className = "result-banner result-banner--correct";
+        resultEl.textContent = `정답! 승리했어요. 배틀 레이팅 ${Math.round(r.my_rating_after)} (${r.my_rating_delta >= 0 ? "+" : ""}${Math.round(r.my_rating_delta)}) · 코인 +${r.coins_awarded ?? 0}`;
+      } else {
+        resultEl.className = "result-banner result-banner--wrong";
+        resultEl.textContent = `정답이긴 한데, ${opponentName}님이 이미 먼저 맞혔어요.`;
+      }
+    }
+  } else {
+    resultEl.className = "result-banner result-banner--wrong";
+    resultEl.textContent = "오답이에요. 다시 시도해보세요.";
+  }
+}
+
+document.getElementById("submit-btn").addEventListener("click", submitAnswer);
+loadBattleAndProblem();
+</script>
+</body>
+</html>
