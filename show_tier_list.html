@@ -5,115 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>티어 목록 · Nexus</title>
     <link rel="stylesheet" href="css/style.css">
-    <script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
-    <script src="https://jsdelivr.net"></script>
-    
+    <script>
+        // 렌더링 차단을 막기 위해 헤드에서 즉시 테마 적용
+        document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";
+    </script>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg, #1e1e24);
-            color: var(--text, #ffffff);
-            margin: 0;
-            padding: 0;
-        }
-        .content-wrapper {
-            padding: 40px 24px;
-        }
-        h1 {
-            text-align: center;
-            margin-bottom: 40px;
-            color: var(--accent, #e8c547);
-        }
-        .tier-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr); /* 무조건 한 줄에 3개 고정 */
-            gap: 20px;
-            max-width: 1040px;
-            margin: 0 auto;
-        }
-        .tier-card {
-            background-color: #2a2a35;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            border-top: 5px solid var(--tier-color, #fff);
-        }
-        .tier-level { 
-            font-size: 0.85rem; 
-            color: #aaa; 
-            margin-bottom: 10px; 
-        }
-        .tier-rating-range { 
-            font-size: 0.9rem; 
-            color: #ccc; 
-            margin-top: 15px; 
-        }
-        .tier-badge {
-            display: inline-flex;
-            align-items: center; /* 자식 요소들을 세로 중앙 정렬 */
-            justify-content: center;
-            gap: 8px; /* 육각형과 글자 사이 간격 */
-            padding: 6px 12px;
-            border-radius: 20px;
-            background-color: rgba(255, 255, 255, 0.1);
-            font-weight: bold;
-            color: var(--tier-color, #fff);
-        }
-        .tier-badge--lg { 
-            font-size: 1.2rem; 
-            padding: 10px 20px; 
-        }
-        .tier-badge__hex {
-            display: inline-block;
-            flex-shrink: 0;
-            width: 12px;          /* 육각형 가로 크기 */
-            height: 14px;         /* 정육각형 비율에 맞춘 세로 크기 */
-            background-color: var(--tier-color, #fff);
-            
-            /* 6개의 꼭짓점을 좌표로 찍어 진짜 정육각형을 만듭니다 (rotate 필요 없음) */
-            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
-            
-            margin-right: 4px;    /* 우측 텍스트와의 간격 정렬 */
-        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg, #1e1e24); color: var(--text, #ffffff); margin: 0; padding: 0; }
+        .content-wrapper { padding: 40px 24px; }
+        h1 { text-align: center; margin-bottom: 40px; color: var(--accent, #e8c547); }
+        /* 반응형 레이아웃 최적화 */
+        .tier-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 1040px; margin: 0 auto; }
+        .tier-card { background-color: #2a2a35; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-top: 5px solid var(--tier-color, #fff); contain: content; } /* contain 속성으로 브라우저 최적화 유도 */
+        .tier-level { font-size: 0.85rem; color: #aaa; margin-bottom: 10px; }
+        .tier-rating-range { font-size: 0.9rem; color: #ccc; margin-top: 15px; }
+        .tier-badge { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 12px; border-radius: 20px; background-color: rgba(255, 255, 255, 0.1); font-weight: bold; color: var(--tier-color, #fff); }
+        .tier-badge--lg { font-size: 1.2rem; padding: 10px 20px; }
+        .tier-badge__hex { display: inline-block; flex-shrink: 0; width: 12px; height: 14px; background-color: var(--tier-color, #fff); clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%); margin-right: 4px; }
     </style>
+    <!-- 외부 스크립트는 비동기(defer)로 로드하여 초기 화면 렌더링 속도 향상 -->
+    <script src="js/supabase-client.js" defer></script>
+    <script src="js/tier.js" defer></script>
+    <script src="js/nav.js" defer></script>
 </head>
 <body>
-
-    <!-- 상단바가 들어가는 구역 -->
     <div id="nav-root"></div>
-
     <div class="content-wrapper">
-        <h1>Nexus 전체 티어 로드맵</h1>
+        <h1>Nexus 전체 티어 목록</h1>
         <div id="tierContainer" class="tier-grid"></div>
     </div>
 
-    <!-- 필요한 스크립트 순서대로 로드 -->
-    <script src="js/supabase-client.js"></script>
-    <script src="js/tier.js"></script>
-    <script src="js/nav.js"></script>
-
     <script>
         document.addEventListener("DOMContentLoaded", async () => {
-            // 상단바 컴포넌트 렌더링 (활성화 탭: 'tiers')
+            // 상단바 컴포넌트 렌더링
             if (typeof renderNav === "function") {
                 await renderNav("tiers");
             }
 
             const container = document.getElementById("tierContainer");
+            if (!container) return;
 
-            // 0레벨부터 최대 레벨까지 카드 생성
+            // 성능 최적화: DOM 조작 최소화를 위한 Fragment 생성
+            const fragment = document.createDocumentFragment();
+
             for (let level = 0; level <= MAX_TIER_LEVEL; level++) {
                 const info = tierLevelToInfo(level);
                 const minRating = level * RATING_PER_LEVEL;
-                
+
                 const card = document.createElement("div");
                 card.className = "tier-card";
                 card.style.setProperty("--tier-color", info.color);
 
                 const levelEl = document.createElement("div");
                 levelEl.className = "tier-level";
-                levelEl.innerText = `LEVEL ${level}`;
+                levelEl.textContent = `LEVEL ${level}`; // innerText 대신 성능이 더 좋은 textContent 사용
                 card.appendChild(levelEl);
 
                 const badgeEl = renderTierBadge(minRating, { size: "lg" });
@@ -121,11 +65,14 @@
 
                 const ratingEl = document.createElement("div");
                 ratingEl.className = "tier-rating-range";
-                ratingEl.innerText = `컷: ${minRating} 점`;
+                ratingEl.textContent = `컷: ${minRating} 점`;
                 card.appendChild(ratingEl);
 
-                container.appendChild(card);
+                fragment.appendChild(card);
             }
+
+            // 메모리에 쌓아둔 카드를 단 한 번만 DOM에 주입하여 리플로우(Reflow) 방지
+            container.appendChild(fragment);
         });
     </script>
 </body>
