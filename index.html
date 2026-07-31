@@ -42,14 +42,15 @@ async function initHome() {
     console.error("initHome: getUser 실패", err);
   }
 
-  if (!user) {
-    ctaEl.innerHTML = `
-      <a class="btn btn--primary" href="signup.html" style="margin-top:10px;">지금 시작하기</a>
-      <a class="btn btn--ghost" href="problems.html" style="margin-top:10px;">문제 둘러보기</a>
-    `;
-    gridEl.innerHTML = "";
-    return;
-  }
+if (!user) {
+  ctaEl.innerHTML = `
+    <a class="btn btn--primary" href="signup.html" style="margin-top:10px;">지금 시작하기</a>
+    <a class="btn btn--ghost" href="problems.html" style="margin-top:10px;">문제 둘러보기</a>
+    <a class="btn btn--ghost" href="show_tier_list.html" style="margin-top:10px;">전체 티어 가이드</a>
+  `;
+  gridEl.innerHTML = "";
+  return;
+}
 
   const { data: tiers } = await sb
     .from("user_tiers")
