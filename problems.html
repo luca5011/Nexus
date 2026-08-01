@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="css/style.css">
 <script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="icon" type="image/png" href="favicon.png">
+<link rel="icon" type="image/png" href="https://i.ibb.co/qY1f930g/2026-07-31-095958.png">
 </head>
 <body>
 <div id="nav-root"></div>
@@ -16,12 +16,51 @@
   <h1>문제</h1>
   <div id="subject-tabs" class="subject-tabs"></div>
 
-  <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
-    <input id="title-search" type="text" placeholder="제목으로 검색" style="flex:1; min-width:160px;">
-    <select id="tier-filter" style="min-width:120px;">
+  <div class="search-filter-row">
+    <input id="title-search" type="text" class="search-input" placeholder="제목으로 검색">
+    <select id="tier-filter" class="tier-select">
       <option value="all">전체 티어</option>
     </select>
   </div>
+
+  <style>
+    .search-filter-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .search-input,
+    .tier-select {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 11px 13px;
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .search-input {
+      flex: 1;
+      min-width: 160px;
+    }
+    .search-input::placeholder {
+      color: var(--text-faint);
+    }
+    .search-input:focus,
+    .tier-select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .tier-select {
+      min-width: 130px;
+      cursor: pointer;
+    }
+    .tier-select option {
+      background: var(--surface);
+      color: var(--text);
+    }
+  </style>
 
   <div class="card" style="padding:0; overflow:hidden;">
     <table class="problem-table">
