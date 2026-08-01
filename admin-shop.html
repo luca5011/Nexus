@@ -29,10 +29,16 @@
         </div>
         <div class="field"><label>이름</label><input id="s-name" type="text" required></div>
         <div class="field"><label>설명 (선택)</label><input id="s-description" type="text"></div>
-        <div class="field"><label>가격 (코인)</label><input id="s-price" type="number" min="1" required></div>
+        <div class="field"><label>가격 (코인) — 티어 올클리어 지급 아이템이면 무시되니 0 입력</label><input id="s-price" type="number" min="0" required></div>
         <div class="field">
           <label>이미지 URL (배경 미리보기/배너에 사용돼요)</label>
           <input id="s-image-url" type="text" placeholder="https://...">
+        </div>
+        <div class="field">
+          <label>티어 올클리어 지급 조건 (선택 — 설정하면 코인 구매 불가, 해당 티어를 한 과목이라도 전부 풀면 자동 지급)</label>
+          <select id="s-unlock-tier">
+            <option value="">-- 없음 (일반 구매 아이템) --</option>
+          </select>
         </div>
 
         <button type="submit" class="btn btn--primary">아이템 추가</button>
@@ -58,6 +64,15 @@ async function init() {
   }
   document.getElementById("admin-body").style.display = "block";
 
+  const tierSelect = document.getElementById("s-unlock-tier");
+  for (let level = 0; level <= MAX_TIER_LEVEL; level++) {
+    const info = tierLevelToInfo(level);
+    const opt = document.createElement("option");
+    opt.value = level;
+    opt.textContent = info.label;
+    tierSelect.appendChild(opt);
+  }
+
   document.getElementById("shop-item-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const msg = document.getElementById("shop-item-msg");
@@ -66,11 +81,14 @@ async function init() {
     const description = document.getElementById("s-description").value.trim();
     const price = parseInt(document.getElementById("s-price").value, 10);
     const image_url = document.getElementById("s-image-url").value.trim();
+    const unlockTierRaw = document.getElementById("s-unlock-tier").value;
+    const unlock_tier_level = unlockTierRaw === "" ? null : parseInt(unlockTierRaw, 10);
 
     const { error } = await sb.from("shop_items").insert({
       type, name, price,
       description: description || null,
       image_url: image_url || null,
+      unlock_tier_level,
     });
 
     msg.textContent = error ? error.message : "아이템을 추가했어요.";

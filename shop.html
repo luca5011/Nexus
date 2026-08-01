@@ -19,6 +19,10 @@
   <h2 style="margin-top:28px;">배경 &amp; 테마</h2>
   <div id="items-grid" class="shop-grid"></div>
 
+  <h2 style="margin-top:36px;">티어 올클리어 보상</h2>
+  <p style="font-size:13px;">특정 티어의 문제를 한 과목이라도 전부 풀면 자동으로 지급돼요. 코인으로는 살 수 없어요.</p>
+  <div id="tier-reward-grid" class="shop-grid"></div>
+
   <h2 style="margin-top:36px;">구매 가능한 칭호</h2>
   <div id="titles-grid" class="shop-grid"></div>
 </main>
@@ -49,7 +53,7 @@ async function loadShop() {
   const { data: userTitles } = await sb.from("user_titles").select("title_id").eq("user_id", currentUser.id);
   ownedTitleIds = new Set((userTitles ?? []).map(t => t.title_id));
 
-  const { data: items } = await sb.from("shop_items").select("*").order("price", { ascending: true });
+  const { data: items } = await sb.from("shop_items").select("*").is("unlock_tier_level", null).order("price", { ascending: true });
   const itemsGrid = document.getElementById("items-grid");
   if (!items || items.length === 0) {
     itemsGrid.innerHTML = `<div class="empty-state">등록된 상품이 없어요.</div>`;
@@ -65,6 +69,25 @@ async function loadShop() {
           <button class="btn ${owned ? "btn--ghost" : "btn--primary"}" data-id="${item.id}" data-kind="item" ${owned ? "disabled" : ""}>
             ${owned ? "보유중" : "구매"}
           </button>
+        </div>
+      `;
+    }).join("");
+  }
+
+  const { data: tierRewards } = await sb.from("shop_items").select("*").not("unlock_tier_level", "is", null).order("unlock_tier_level", { ascending: true });
+  const tierRewardGrid = document.getElementById("tier-reward-grid");
+  if (!tierRewards || tierRewards.length === 0) {
+    tierRewardGrid.innerHTML = `<div class="empty-state">아직 등록된 티어 보상이 없어요.</div>`;
+  } else {
+    tierRewardGrid.innerHTML = tierRewards.map(item => {
+      const owned = ownedItemIds.has(item.id);
+      const tierInfo = tierLevelToInfo(item.unlock_tier_level);
+      return `
+        <div class="shop-item">
+          <div class="shop-item__preview" style="${item.image_url ? `background-image:url(${item.image_url}); background-size:cover;` : ""}"></div>
+          <strong>${item.name}</strong>
+          <span class="tier-badge tier-badge--sm" style="--tier-color:${tierInfo.color}"><span class="tier-badge__hex"></span>${tierInfo.label} 올클리어</span>
+          <span style="font-size:12px; color:${owned ? "var(--success)" : "var(--text-faint)"};">${owned ? "✓ 획득함" : "미획득"}</span>
         </div>
       `;
     }).join("");

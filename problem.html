@@ -31,6 +31,7 @@
 const problemId = new URLSearchParams(window.location.search).get("id");
 let answerType = null;
 let selectedChoiceId = null;
+let currentSubject = null;
 
 async function loadProblem() {
   await renderNav("problems");
@@ -52,6 +53,7 @@ async function loadProblem() {
   }
 
   answerType = p.answer_type;
+  currentSubject = p.subject;
   const tier = tierLevelToInfo(p.tier_level);
 
   const isActiveContestProblem = p.contest_id && p.contests && new Date(p.contests.ends_at) > new Date();
@@ -148,9 +150,29 @@ async function submitAnswer() {
     }
     resultEl.className = "result-banner result-banner--correct";
     resultEl.textContent = text;
+
+    // 이 과목의 특정 티어를 방금 올클리어했으면 배경 등 보상 자동 지급
+    checkTierClearReward();
   } else {
     resultEl.className = "result-banner result-banner--wrong";
     resultEl.textContent = "오답이에요. 다시 시도해보세요.";
+  }
+}
+
+async function checkTierClearReward() {
+  if (!currentSubject) return;
+  const { data, error } = await sb.rpc("check_tier_clear_reward", { p_subject: currentSubject });
+  if (error || !data || data.length === 0) return;
+
+  const row = data[0];
+  if (row.awarded) {
+    const resultEl = document.getElementById("result");
+    const bonusEl = document.createElement("div");
+    bonusEl.className = "result-banner result-banner--correct";
+    bonusEl.style.display = "block";
+    bonusEl.style.marginTop = "10px";
+    bonusEl.textContent = `🎉 ${tierLevelToInfo(row.tier_level).label} 티어 올클리어! 보상으로 "${row.item_name}"을(를) 획득했어요. 프로필에서 장착할 수 있어요.`;
+    resultEl.insertAdjacentElement("afterend", bonusEl);
   }
 }
 
