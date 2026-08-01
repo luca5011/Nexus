@@ -40,7 +40,7 @@ let selectedChoiceId = null;
 let myUserId = null;
 let opponentName = "상대";
 let battleFinished = false;
-let pollTimer = null;
+let battleChannel = null;
 
 async function loadBattleAndProblem() {
   await renderNav("battles");
@@ -130,7 +130,15 @@ async function loadBattleAndProblem() {
     `;
   }
 
-  pollTimer = setInterval(pollBattle, 2000);
+  subscribeToBattleUpdates();
+}
+
+function subscribeToBattleUpdates() {
+  battleChannel = sb.channel(`battle-${battleId}`)
+    .on("postgres_changes",
+      { event: "UPDATE", schema: "public", table: "battles", filter: `id=eq.${battleId}` },
+      (payload) => applyBattleState(payload.new))
+    .subscribe();
 }
 
 function applyBattleState(battle) {
@@ -138,7 +146,7 @@ function applyBattleState(battle) {
 
   if (battle.status === "finished") {
     battleFinished = true;
-    if (pollTimer) clearInterval(pollTimer);
+    if (battleChannel) { sb.removeChannel(battleChannel); battleChannel = null; }
     document.getElementById("live-badge").textContent = "● 종료";
     document.getElementById("live-badge").style.color = "var(--text-faint)";
     document.getElementById("submit-btn").disabled = true;
@@ -154,12 +162,6 @@ function applyBattleState(battle) {
       resultEl.textContent = `${opponentName}님이 먼저 정답을 맞혔어요. 다음 배틀에서 다시 도전해보세요.`;
     }
   }
-}
-
-async function pollBattle() {
-  if (battleFinished) return;
-  const { data: battle } = await sb.from("battles").select("*").eq("id", battleId).single();
-  if (battle) applyBattleState(battle);
 }
 
 async function submitAnswer() {
@@ -203,7 +205,7 @@ async function submitAnswer() {
     if (!berr && bres && bres.length > 0) {
       const r = bres[0];
       battleFinished = true;
-      if (pollTimer) clearInterval(pollTimer);
+      if (battleChannel) { sb.removeChannel(battleChannel); battleChannel = null; }
       document.getElementById("submit-btn").disabled = true;
       document.getElementById("submit-btn").textContent = "배틀 종료";
       document.getElementById("live-badge").textContent = "● 종료";
@@ -222,6 +224,9 @@ async function submitAnswer() {
 }
 
 document.getElementById("submit-btn").addEventListener("click", submitAnswer);
+window.addEventListener("beforeunload", () => {
+  if (battleChannel) sb.removeChannel(battleChannel);
+});
 loadBattleAndProblem();
 </script>
 </body>

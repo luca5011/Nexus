@@ -40,7 +40,7 @@
 <script>
 let currentSubject = "math";
 let searching = false;
-let pollTimer = null;
+let matchChannels = [];
 
 function renderTabs() {
   const el = document.getElementById("subject-tabs");
@@ -115,23 +115,57 @@ async function startSearch() {
   document.getElementById("cancel-btn").style.display = "block";
   document.getElementById("status-line").textContent = "상대를 찾는 중...";
 
-  await tryMatch();
-  pollTimer = setInterval(tryMatch, 2500);
+  // 큐 등록 + 즉시 매칭 시도는 딱 한 번만. 이후 매칭은 상대방이 큐를 확인하는
+  // 순간 서버에서 발생하고, 그 결과(battles row 생성)를 Realtime으로 통지받는다.
+  const matched = await tryMatchOnce();
+  if (matched) return;
+
+  subscribeForMatch(user.id);
 }
 
-async function tryMatch() {
-  if (!searching) return;
+async function tryMatchOnce() {
   const { data, error } = await sb.rpc("join_battle_queue", { p_subject: currentSubject });
 
   if (error) {
     document.getElementById("status-line").textContent = "오류: " + error.message;
     stopSearch();
-    return;
+    return true; // 더 이상 진행하지 않음
   }
   if (data && data.length > 0 && data[0].battle_id) {
     stopSearch();
     window.location.href = "battle.html?id=" + data[0].battle_id;
+    return true;
   }
+  return false;
+}
+
+function subscribeForMatch(uid) {
+  unsubscribeMatchChannels();
+
+  const onMatched = (battle) => {
+    stopSearch();
+    window.location.href = "battle.html?id=" + battle.id;
+  };
+
+  // player1_id / player2_id 각각 별도 채널로 구독 (filter는 단일 컬럼 eq만 지원)
+  const ch1 = sb.channel(`battle-match-p1-${uid}`)
+    .on("postgres_changes",
+      { event: "INSERT", schema: "public", table: "battles", filter: `player1_id=eq.${uid}` },
+      (payload) => onMatched(payload.new))
+    .subscribe();
+
+  const ch2 = sb.channel(`battle-match-p2-${uid}`)
+    .on("postgres_changes",
+      { event: "INSERT", schema: "public", table: "battles", filter: `player2_id=eq.${uid}` },
+      (payload) => onMatched(payload.new))
+    .subscribe();
+
+  matchChannels = [ch1, ch2];
+}
+
+function unsubscribeMatchChannels() {
+  matchChannels.forEach(ch => sb.removeChannel(ch));
+  matchChannels = [];
 }
 
 async function cancelSearch() {
@@ -142,8 +176,7 @@ async function cancelSearch() {
 
 function stopSearch() {
   searching = false;
-  if (pollTimer) clearInterval(pollTimer);
-  pollTimer = null;
+  unsubscribeMatchChannels();
   document.getElementById("find-btn").style.display = "block";
   document.getElementById("cancel-btn").style.display = "none";
 }
