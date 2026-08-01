@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>제출 기록 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="icon" type="image/png" href="https://i.ibb.co/qY1f930g/2026-07-31-095958.png">
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px;">
+  <a href="admin.html" class="btn btn--ghost" style="font-size:13px; padding:6px 10px; margin-bottom:12px;">← 관리자 메뉴</a>
+  <h1>제출 기록</h1>
+  <div id="guard-msg"></div>
+
+  <div id="admin-body" style="display:none;">
+    <section class="admin-section">
+      <div class="card">
+        <div class="field">
+          <label>아이디로 필터 (비우면 전체 최근 100개)</label>
+          <input id="sub-search" type="text" placeholder="username 입력 후 Enter">
+        </div>
+      </div>
+      <div class="card" style="padding:0; overflow:hidden; margin-top:12px;">
+        <table class="problem-table">
+          <thead>
+            <tr>
+              <th>결과</th><th>유저</th><th>과목</th><th>문제</th><th>제출 내용</th><th>시각</th>
+            </tr>
+          </thead>
+          <tbody id="submissions-rows"></tbody>
+        </table>
+        <div id="submissions-empty" class="empty-state" style="display:none;">제출 기록이 없어요.</div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+async function init() {
+  await renderNav("admin");
+  const user = await requireAuth();
+  if (!user) return;
+
+  const { data: profile } = await sb.from("profiles").select("is_admin, is_super_admin").eq("id", user.id).single();
+  if (!profile?.is_admin && !profile?.is_super_admin) {
+    document.getElementById("guard-msg").innerHTML = `<p style="color:var(--danger)">관리자 계정만 접근할 수 있어요.</p>`;
+    return;
+  }
+  document.getElementById("admin-body").style.display = "block";
+
+  async function loadSubmissions(username) {
+    const rowsEl = document.getElementById("submissions-rows");
+    const emptyEl = document.getElementById("submissions-empty");
+    rowsEl.innerHTML = "";
+
+    let targetUserId = null;
+    if (username) {
+      const { data: u } = await sb.from("profiles").select("id").ilike("username", username).limit(1).single();
+      if (!u) {
+        emptyEl.style.display = "block";
+        emptyEl.textContent = "해당 아이디의 유저를 찾을 수 없어요.";
+        return;
+      }
+      targetUserId = u.id;
+      emptyEl.textContent = "제출 기록이 없어요.";
+    }
+
+    let query = sb
+      .from("submissions")
+      .select("submitted_answer, is_correct, submitted_at, profiles(username), problems(title, subject)")
+      .order("submitted_at", { ascending: false })
+      .limit(100);
+
+    if (targetUserId) query = query.eq("user_id", targetUserId);
+
+    const { data: subs, error } = await query;
+
+    if (error || !subs || subs.length === 0) {
+      emptyEl.style.display = "block";
+      return;
+    }
+    emptyEl.style.display = "none";
+
+    rowsEl.innerHTML = subs.map(s => `
+      <tr>
+        <td class="${s.is_correct ? "problem-row-solved" : ""}" style="${s.is_correct ? "" : "color:var(--danger)"}">${s.is_correct ? "정답" : "오답"}</td>
+        <td>${s.profiles?.username ?? "알 수 없음"}</td>
+        <td style="color:var(--text-muted); font-size:13px;">${SUBJECTS[s.problems?.subject]?.label ?? "-"}</td>
+        <td>${s.problems?.title ?? "(삭제된 문제)"}</td>
+        <td style="color:var(--text-muted); font-size:13px; max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${s.submitted_answer}</td>
+        <td style="color:var(--text-faint); font-size:12px; font-family:var(--font-mono);">${new Date(s.submitted_at).toLocaleString("ko-KR")}</td>
+      </tr>
+    `).join("");
+  }
+
+  document.getElementById("sub-search").addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    loadSubmissions(e.target.value.trim());
+  });
+
+  loadSubmissions(null);
+}
+init();
+</script>
+</body>
+</html>

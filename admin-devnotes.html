@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>개발자노트 작성 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="icon" type="image/png" href="https://i.ibb.co/qY1f930g/2026-07-31-095958.png">
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px; max-width:640px;">
+  <a href="admin.html" class="btn btn--ghost" style="font-size:13px; padding:6px 10px; margin-bottom:12px;">← 관리자 메뉴</a>
+  <h1>개발자노트 작성</h1>
+  <div id="guard-msg"></div>
+
+  <div id="admin-body" style="display:none;">
+    <section class="admin-section">
+      <form id="note-form" class="card">
+        <div class="field"><label>제목</label><input id="n-title" type="text" required></div>
+        <div class="field"><label>내용</label><textarea id="n-content" rows="4" required></textarea></div>
+        <button type="submit" class="btn btn--primary">게시</button>
+        <div id="note-msg" class="form-msg"></div>
+      </form>
+    </section>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+async function init() {
+  await renderNav("admin");
+  const user = await requireAuth();
+  if (!user) return;
+
+  const { data: profile } = await sb.from("profiles").select("is_admin, is_super_admin").eq("id", user.id).single();
+  if (!profile?.is_admin && !profile?.is_super_admin) {
+    document.getElementById("guard-msg").innerHTML = `<p style="color:var(--danger)">관리자 계정만 접근할 수 있어요.</p>`;
+    return;
+  }
+  document.getElementById("admin-body").style.display = "block";
+
+  document.getElementById("note-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("note-msg");
+    const title = document.getElementById("n-title").value.trim();
+    const content = document.getElementById("n-content").value.trim();
+
+    const { error } = await sb.from("dev_notes").insert({ title, content, created_by: user.id });
+    msg.textContent = error ? error.message : "게시했어요.";
+    msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
+    if (!error) e.target.reset();
+  });
+}
+init();
+</script>
+</body>
+</html>

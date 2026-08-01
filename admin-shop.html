@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>상점 아이템 추가 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="icon" type="image/png" href="https://i.ibb.co/qY1f930g/2026-07-31-095958.png">
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px; max-width:640px;">
+  <a href="admin.html" class="btn btn--ghost" style="font-size:13px; padding:6px 10px; margin-bottom:12px;">← 관리자 메뉴</a>
+  <h1>상점 아이템 추가</h1>
+  <div id="guard-msg"></div>
+
+  <div id="admin-body" style="display:none;">
+    <section class="admin-section">
+      <form id="shop-item-form" class="card">
+        <div class="field">
+          <label>종류</label>
+          <select id="s-type">
+            <option value="background">프로필 배경</option>
+            <option value="theme">테마</option>
+          </select>
+        </div>
+        <div class="field"><label>이름</label><input id="s-name" type="text" required></div>
+        <div class="field"><label>설명 (선택)</label><input id="s-description" type="text"></div>
+        <div class="field"><label>가격 (코인)</label><input id="s-price" type="number" min="1" required></div>
+        <div class="field">
+          <label>이미지 URL (배경 미리보기/배너에 사용돼요)</label>
+          <input id="s-image-url" type="text" placeholder="https://...">
+        </div>
+
+        <button type="submit" class="btn btn--primary">아이템 추가</button>
+        <div id="shop-item-msg" class="form-msg"></div>
+      </form>
+    </section>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+async function init() {
+  await renderNav("admin");
+  const user = await requireAuth();
+  if (!user) return;
+
+  const { data: profile } = await sb.from("profiles").select("is_admin, is_super_admin").eq("id", user.id).single();
+  if (!profile?.is_admin && !profile?.is_super_admin) {
+    document.getElementById("guard-msg").innerHTML = `<p style="color:var(--danger)">관리자 계정만 접근할 수 있어요.</p>`;
+    return;
+  }
+  document.getElementById("admin-body").style.display = "block";
+
+  document.getElementById("shop-item-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("shop-item-msg");
+    const type = document.getElementById("s-type").value;
+    const name = document.getElementById("s-name").value.trim();
+    const description = document.getElementById("s-description").value.trim();
+    const price = parseInt(document.getElementById("s-price").value, 10);
+    const image_url = document.getElementById("s-image-url").value.trim();
+
+    const { error } = await sb.from("shop_items").insert({
+      type, name, price,
+      description: description || null,
+      image_url: image_url || null,
+    });
+
+    msg.textContent = error ? error.message : "아이템을 추가했어요.";
+    msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
+    if (!error) e.target.reset();
+  });
+}
+init();
+</script>
+</body>
+</html>
