@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>관리자 · Nexus</title>
+<title>문제 관리 · Nexus</title>
 <link rel="stylesheet" href="css/style.css">
 <script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -13,44 +13,75 @@
 <div id="nav-root"></div>
 
 <main class="page" style="padding-top:32px;">
-  <h1>관리자</h1>
+  <a href="admin.html" class="btn btn--ghost" style="font-size:13px; padding:6px 10px; margin-bottom:12px;">← 관리자 메뉴</a>
+  <h1>문제 관리</h1>
   <div id="guard-msg"></div>
 
   <div id="admin-body" style="display:none;">
-    <div class="shop-grid">
-      <a class="card" href="admin-problems.html" style="text-decoration:none;">
-        <strong>문제 관리</strong>
-        <p style="font-size:13px; margin-top:8px;">문제 추가/수정, 문제 목록 확인</p>
-      </a>
-      <a class="card" href="admin-problemsets.html" style="text-decoration:none;">
-        <strong>문제집 관리</strong>
-        <p style="font-size:13px; margin-top:8px;">문제집 생성 및 문제 구성</p>
-      </a>
-      <a class="card" href="admin-devnotes.html" style="text-decoration:none;">
-        <strong>개발자노트 작성</strong>
-        <p style="font-size:13px; margin-top:8px;">업데이트 소식 게시</p>
-      </a>
-      <a class="card" href="admin-titles.html" style="text-decoration:none;">
-        <strong>칭호 관리</strong>
-        <p style="font-size:13px; margin-top:8px;">자동/구매/수동 칭호 추가</p>
-      </a>
-      <a class="card" href="admin-shop.html" style="text-decoration:none;">
-        <strong>상점 아이템 추가</strong>
-        <p style="font-size:13px; margin-top:8px;">배경/테마 아이템 등록</p>
-      </a>
-      <a class="card" href="admin-users.html" style="text-decoration:none;">
-        <strong>계정 관리</strong>
-        <p style="font-size:13px; margin-top:8px;">아이디 검색, 밴/밴 해제</p>
-      </a>
-      <a class="card" href="admin-grants.html" style="text-decoration:none;">
-        <strong>유저에게 지급하기</strong>
-        <p style="font-size:13px; margin-top:8px;">아이템/칭호 수동 지급</p>
-      </a>
-      <a class="card" href="admin-submissions.html" style="text-decoration:none;">
-        <strong>제출 기록</strong>
-        <p style="font-size:13px; margin-top:8px;">전체/유저별 제출 내역 조회</p>
-      </a>
-    </div>
+
+    <section class="admin-section">
+      <h2>문제 추가</h2>
+      <form id="problem-form" class="card">
+        <div class="field">
+          <label>과목</label>
+          <select id="p-subject">
+            <option value="coding">코딩 (향후 개설 · UI 비활성)</option>
+            <option value="math" selected>수학</option>
+            <option value="science">과학</option>
+            <option value="korean">국어</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>티어 레벨 (0=Origin III ~ 17=Omniscient I)</label>
+          <input id="p-tier" type="number" min="0" max="17" value="0">
+        </div>
+        <div class="field"><label>제목</label><input id="p-title" type="text" required></div>
+        <div class="field"><label>문제 내용</label><textarea id="p-content" rows="5" required></textarea></div>
+        <div class="field">
+          <label>답 유형</label>
+          <select id="p-answer-type">
+            <option value="objective">객관식</option>
+            <option value="subjective">주관식</option>
+          </select>
+        </div>
+
+        <div id="objective-fields">
+          <div class="field"><label>보기 (한 줄에 하나씩)</label><textarea id="p-choices" rows="4" placeholder="보기1&#10;보기2&#10;보기3&#10;보기4"></textarea></div>
+          <div class="field"><label>정답 보기 번호 (1부터 시작)</label><input id="p-correct-index" type="number" min="1" value="1"></div>
+        </div>
+        <div id="subjective-fields" style="display:none;">
+          <div class="field"><label>정답 (대소문자/공백 무시하고 비교돼요)</label><input id="p-correct-text" type="text"></div>
+        </div>
+
+        <button type="submit" id="problem-submit-btn" class="btn btn--primary">문제 등록</button>
+        <button type="button" id="problem-cancel-edit-btn" class="btn btn--ghost" style="display:none;">수정 취소</button>
+        <div id="problem-msg" class="form-msg"></div>
+      </form>
+    </section>
+
+    <section class="admin-section">
+      <h2>문제 목록</h2>
+      <div class="card">
+        <div class="field">
+          <label>과목 필터</label>
+          <select id="pl-subject-filter">
+            <option value="">전체</option>
+            <option value="math">수학</option>
+            <option value="science">과학</option>
+            <option value="korean">국어</option>
+            <option value="coding">코딩</option>
+          </select>
+        </div>
+      </div>
+      <div class="card" style="padding:0; overflow:hidden; margin-top:12px;">
+        <table class="problem-table">
+          <thead><tr><th>과목</th><th>티어</th><th>제목</th><th>유형</th><th style="width:70px;"></th></tr></thead>
+          <tbody id="problem-list-rows"></tbody>
+        </table>
+        <div id="problem-list-empty" class="empty-state" style="display:none;">등록된 문제가 없어요.</div>
+      </div>
+    </section>
+
   </div>
 </main>
 
@@ -69,6 +100,156 @@ async function init() {
     return;
   }
   document.getElementById("admin-body").style.display = "block";
+
+  // 답 유형 전환
+  document.getElementById("p-answer-type").addEventListener("change", (e) => {
+    const isObjective = e.target.value === "objective";
+    document.getElementById("objective-fields").style.display = isObjective ? "block" : "none";
+    document.getElementById("subjective-fields").style.display = isObjective ? "none" : "block";
+  });
+
+  // 문제 등록 / 수정
+  let editingProblemId = null;
+
+  function resetProblemForm() {
+    editingProblemId = null;
+    document.getElementById("problem-form").reset();
+    document.getElementById("objective-fields").style.display = "block";
+    document.getElementById("subjective-fields").style.display = "none";
+    document.getElementById("problem-submit-btn").textContent = "문제 등록";
+    document.getElementById("problem-cancel-edit-btn").style.display = "none";
+  }
+
+  document.getElementById("problem-cancel-edit-btn").addEventListener("click", resetProblemForm);
+
+  document.getElementById("problem-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("problem-msg");
+    msg.textContent = ""; msg.className = "form-msg";
+
+    const subject = document.getElementById("p-subject").value;
+    const tier_level = parseInt(document.getElementById("p-tier").value, 10);
+    const title = document.getElementById("p-title").value.trim();
+    const content = document.getElementById("p-content").value.trim();
+    const answer_type = document.getElementById("p-answer-type").value;
+
+    let problem;
+
+    if (editingProblemId) {
+      const { data, error: pErr } = await sb
+        .from("problems")
+        .update({ subject, tier_level, title, content, answer_type })
+        .eq("id", editingProblemId)
+        .select()
+        .single();
+      if (pErr) { msg.textContent = pErr.message; msg.classList.add("form-msg--error"); return; }
+      problem = data;
+
+      // 기존 보기는 지우고 새로 등록 (레이팅/제출 기록은 그대로 둠)
+      await sb.from("problem_choices").delete().eq("problem_id", problem.id);
+    } else {
+      const { data, error: pErr } = await sb
+        .from("problems")
+        .insert({ subject, tier_level, title, content, answer_type, created_by: user.id })
+        .select()
+        .single();
+      if (pErr) { msg.textContent = pErr.message; msg.classList.add("form-msg--error"); return; }
+      problem = data;
+    }
+
+    if (answer_type === "objective") {
+      const lines = document.getElementById("p-choices").value.split("\n").map(s => s.trim()).filter(Boolean);
+      const correctIndex = parseInt(document.getElementById("p-correct-index").value, 10) - 1;
+
+      const choiceRows = lines.map((text, i) => ({ problem_id: problem.id, choice_order: i, choice_text: text }));
+      const { data: insertedChoices, error: cErr } = await sb.from("problem_choices").insert(choiceRows).select();
+      if (cErr) { msg.textContent = cErr.message; msg.classList.add("form-msg--error"); return; }
+
+      const correctChoice = insertedChoices.find(c => c.choice_order === correctIndex);
+      await sb.from("problem_answers")
+        .upsert({ problem_id: problem.id, correct_answer: correctChoice?.id ?? "" }, { onConflict: "problem_id" });
+    } else {
+      const correctText = document.getElementById("p-correct-text").value.trim();
+      await sb.from("problem_answers")
+        .upsert({ problem_id: problem.id, correct_answer: correctText }, { onConflict: "problem_id" });
+    }
+
+    msg.textContent = editingProblemId ? "문제를 수정했어요." : "문제가 등록됐어요.";
+    msg.classList.add("form-msg--success");
+    resetProblemForm();
+    loadProblemList();
+  });
+
+  // 문제 목록 / 수정 진입
+  async function loadProblemList() {
+    const rowsEl = document.getElementById("problem-list-rows");
+    const emptyEl = document.getElementById("problem-list-empty");
+    const subjectFilter = document.getElementById("pl-subject-filter").value;
+    rowsEl.innerHTML = "";
+
+    let query = sb.from("problems").select("id, subject, tier_level, title, answer_type").order("created_at", { ascending: false });
+    if (subjectFilter) query = query.eq("subject", subjectFilter);
+
+    const { data: problems, error } = await query;
+
+    if (error || !problems || problems.length === 0) {
+      emptyEl.style.display = "block";
+      return;
+    }
+    emptyEl.style.display = "none";
+
+    rowsEl.innerHTML = problems.map(p => {
+      const tier = tierLevelToInfo(p.tier_level);
+      return `
+        <tr>
+          <td style="color:var(--text-muted); font-size:13px;">${SUBJECTS[p.subject]?.label ?? p.subject}</td>
+          <td><span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span></td>
+          <td>${p.title}</td>
+          <td style="color:var(--text-muted); font-size:13px;">${p.answer_type === "objective" ? "객관식" : "주관식"}</td>
+          <td><button class="btn btn--ghost" data-edit-id="${p.id}" style="font-size:13px; padding:6px 10px;">수정</button></td>
+        </tr>
+      `;
+    }).join("");
+
+    rowsEl.querySelectorAll("button[data-edit-id]").forEach(btn => {
+      btn.addEventListener("click", () => loadProblemIntoForm(btn.dataset.editId));
+    });
+  }
+
+  async function loadProblemIntoForm(problemId) {
+    const { data: problem } = await sb.from("problems").select("*").eq("id", problemId).single();
+    if (!problem) return;
+
+    editingProblemId = problem.id;
+    document.getElementById("p-subject").value = problem.subject;
+    document.getElementById("p-tier").value = problem.tier_level;
+    document.getElementById("p-title").value = problem.title;
+    document.getElementById("p-content").value = problem.content;
+    document.getElementById("p-answer-type").value = problem.answer_type;
+
+    const isObjective = problem.answer_type === "objective";
+    document.getElementById("objective-fields").style.display = isObjective ? "block" : "none";
+    document.getElementById("subjective-fields").style.display = isObjective ? "none" : "block";
+
+    if (isObjective) {
+      const { data: choicesWithId } = await sb.from("problem_choices").select("id, choice_order, choice_text").eq("problem_id", problem.id).order("choice_order");
+      const { data: answer } = await sb.from("problem_answers").select("correct_answer").eq("problem_id", problem.id).single();
+
+      document.getElementById("p-choices").value = (choicesWithId ?? []).map(c => c.choice_text).join("\n");
+      const matchedIndex = (choicesWithId ?? []).findIndex(c => c.id === answer?.correct_answer);
+      document.getElementById("p-correct-index").value = matchedIndex >= 0 ? matchedIndex + 1 : 1;
+    } else {
+      const { data: answer } = await sb.from("problem_answers").select("correct_answer").eq("problem_id", problem.id).single();
+      document.getElementById("p-correct-text").value = answer?.correct_answer ?? "";
+    }
+
+    document.getElementById("problem-submit-btn").textContent = "문제 수정";
+    document.getElementById("problem-cancel-edit-btn").style.display = "inline-flex";
+    document.getElementById("problem-form").scrollIntoView({ behavior: "smooth" });
+  }
+
+  document.getElementById("pl-subject-filter").addEventListener("change", loadProblemList);
+  loadProblemList();
 }
 init();
 </script>
