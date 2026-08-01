@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>대회 관리 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="icon" type="image/png" href="favicon.png">
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px;">
+  <a href="superadmin.html" class="btn btn--ghost" style="font-size:13px; padding:6px 10px; margin-bottom:12px;">← 총관리자 메뉴</a>
+  <h1>대회 관리</h1>
+  <div id="guard-msg"></div>
+
+  <div id="super-admin-body" style="display:none;">
+    <section class="admin-section">
+      <h2>대회 개최</h2>
+      <form id="contest-form" class="card">
+        <div class="field"><label>대회 이름</label><input id="c-title" type="text" required></div>
+        <div class="field"><label>설명 (선택)</label><textarea id="c-description" rows="3"></textarea></div>
+        <div class="field"><label>시작 시각</label><input id="c-starts" type="datetime-local" required></div>
+        <div class="field"><label>종료 시각</label><input id="c-ends" type="datetime-local" required></div>
+        <button type="submit" class="btn btn--primary">대회 만들기</button>
+        <div id="contest-msg" class="form-msg"></div>
+      </form>
+
+      <div id="contests-admin-list" style="margin-top:16px; display:flex; flex-direction:column; gap:10px;"></div>
+    </section>
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+async function init() {
+  await renderNav("superadmin");
+  const user = await requireAuth();
+  if (!user) return;
+
+  const { data: profile } = await sb.from("profiles").select("is_super_admin").eq("id", user.id).single();
+  if (!profile?.is_super_admin) {
+    document.getElementById("guard-msg").innerHTML = `<p style="color:var(--danger)">총관리자 계정만 접근할 수 있어요.</p>`;
+    return;
+  }
+  document.getElementById("super-admin-body").style.display = "block";
+
+  document.getElementById("contest-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("contest-msg");
+    const title = document.getElementById("c-title").value.trim();
+    const description = document.getElementById("c-description").value.trim();
+    const starts_at = new Date(document.getElementById("c-starts").value).toISOString();
+    const ends_at = new Date(document.getElementById("c-ends").value).toISOString();
+
+    const { error } = await sb.from("contests").insert({
+      title, description: description || null, starts_at, ends_at, created_by: user.id,
+    });
+
+    msg.textContent = error ? error.message : "대회를 만들었어요.";
+    msg.className = "form-msg " + (error ? "form-msg--error" : "form-msg--success");
+    if (!error) { e.target.reset(); loadContests(); }
+  });
+
+  async function loadContests() {
+    const { data: contests } = await sb.from("contests").select("id, title, starts_at, ends_at").order("starts_at", { ascending: false });
+
+    const listEl = document.getElementById("contests-admin-list");
+
+    if (!contests || contests.length === 0) {
+      listEl.innerHTML = `<div class="empty-state">아직 만든 대회가 없어요.</div>`;
+      return;
+    }
+
+    const now = new Date();
+    listEl.innerHTML = contests.map(c => {
+      const starts = new Date(c.starts_at);
+      const ends = new Date(c.ends_at);
+      const status = now < starts ? "예정" : (now > ends ? "종료" : "진행중");
+      return `
+        <div class="card" style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <div>
+            <strong>${c.title}</strong>
+            <span style="font-size:12px; color:var(--text-faint); margin-left:8px;">[${status}]</span>
+            <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
+              ${starts.toLocaleString("ko-KR")} ~ ${ends.toLocaleString("ko-KR")}
+            </div>
+          </div>
+          <button class="btn btn--danger" data-delete-contest="${c.id}" style="font-size:13px; padding:6px 10px;">삭제</button>
+        </div>
+      `;
+    }).join("");
+
+    listEl.querySelectorAll("button[data-delete-contest]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("이 대회를 삭제할까요? (연결된 문제는 삭제되지 않고 일반 문제로 남아요)")) return;
+        await sb.from("contests").delete().eq("id", btn.dataset.deleteContest);
+        loadContests();
+      });
+    });
+  }
+
+  loadContests();
+}
+init();
+</script>
+</body>
+</html>
