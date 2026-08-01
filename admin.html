@@ -7,7 +7,17 @@
 <link rel="stylesheet" href="css/style.css">
 <script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="icon" type="image/png" href="https://i.ibb.co/qY1f930g/2026-07-31-095958.png">
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+  .admin-menu-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  @media (max-width: 640px) {
+    .admin-menu-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
 </head>
 <body>
 <div id="nav-root"></div>
@@ -17,7 +27,7 @@
   <div id="guard-msg"></div>
 
   <div id="admin-body" style="display:none;">
-    <div class="shop-grid">
+    <div class="admin-menu-grid">
       <a class="card" href="admin-problems.html" style="text-decoration:none;">
         <strong>문제 관리</strong>
         <p style="font-size:13px; margin-top:8px;">문제 추가/수정, 문제 목록 확인</p>
