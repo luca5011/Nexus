@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="css/style.css">
 <script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<link rel="icon" type="image/png" href="https://i.ibb.co/qY1f930g/2026-07-31-095958.png">
+<link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
 <div id="nav-root"></div>
@@ -15,6 +15,14 @@
 <main class="page" style="padding-top:32px;">
   <h1>문제</h1>
   <div id="subject-tabs" class="subject-tabs"></div>
+
+  <div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+    <input id="title-search" type="text" placeholder="제목으로 검색" style="flex:1; min-width:160px;">
+    <select id="tier-filter" style="min-width:120px;">
+      <option value="all">전체 티어</option>
+    </select>
+  </div>
+
   <div class="card" style="padding:0; overflow:hidden;">
     <table class="problem-table">
       <thead>
@@ -31,6 +39,10 @@
 <script src="js/nav.js"></script>
 <script>
 let currentSubject = "math";
+let allVisibleProblems = [];
+let solvedIds = new Set();
+let titleQuery = "";
+let tierFilter = "all";
 
 function renderTabs() {
   const el = document.getElementById("subject-tabs");
@@ -51,9 +63,7 @@ function renderTabs() {
 }
 
 async function loadProblems() {
-  const rowsEl = document.getElementById("problem-rows");
   const emptyEl = document.getElementById("empty");
-  rowsEl.innerHTML = "";
 
   const { data: { user } } = await sb.auth.getUser();
 
@@ -64,24 +74,19 @@ async function loadProblems() {
     .order("created_at", { ascending: true });
 
   if (error || !problems) {
+    allVisibleProblems = [];
     emptyEl.style.display = "block";
     return;
   }
 
   // 대회 문제는 대회가 끝나기 전까지 일반 목록에서 숨김
   const now = new Date();
-  const visibleProblems = problems.filter(p => {
+  allVisibleProblems = problems.filter(p => {
     if (!p.contest_id) return true;
     return p.contests && new Date(p.contests.ends_at) < now;
   });
 
-  if (visibleProblems.length === 0) {
-    emptyEl.style.display = "block";
-    return;
-  }
-  emptyEl.style.display = "none";
-
-  let solvedIds = new Set();
+  solvedIds = new Set();
   if (user) {
     const { data: solved } = await sb
       .from("solved_problems")
@@ -90,7 +95,51 @@ async function loadProblems() {
     solvedIds = new Set((solved ?? []).map(s => s.problem_id));
   }
 
-  rowsEl.innerHTML = visibleProblems.map(p => {
+  populateTierFilter();
+  renderProblemList();
+}
+
+function populateTierFilter() {
+  const select = document.getElementById("tier-filter");
+  const prevValue = tierFilter;
+
+  // 현재 과목에 실제로 존재하는 티어만 옵션으로 구성 (중복 제거, 티어 순서대로 정렬)
+  const distinctTiers = [...new Set(allVisibleProblems.map(p => p.tier_level))].sort((a, b) => a - b);
+
+  select.innerHTML = `<option value="all">전체 티어</option>` + distinctTiers.map(t => {
+    const info = tierLevelToInfo(t);
+    return `<option value="${t}">${info.label}</option>`;
+  }).join("");
+
+  // 과목을 바꿔서 이전에 고른 티어가 이번 과목엔 없으면 전체로 리셋
+  if (prevValue !== "all" && !distinctTiers.includes(Number(prevValue))) {
+    tierFilter = "all";
+  }
+  select.value = tierFilter;
+}
+
+function renderProblemList() {
+  const rowsEl = document.getElementById("problem-rows");
+  const emptyEl = document.getElementById("empty");
+
+  const query = titleQuery.trim().toLowerCase();
+  const filtered = allVisibleProblems.filter(p => {
+    if (tierFilter !== "all" && String(p.tier_level) !== String(tierFilter)) return false;
+    if (query && !p.title.toLowerCase().includes(query)) return false;
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    rowsEl.innerHTML = "";
+    emptyEl.style.display = "block";
+    emptyEl.textContent = allVisibleProblems.length === 0
+      ? "아직 등록된 문제가 없어요."
+      : "검색 조건에 맞는 문제가 없어요.";
+    return;
+  }
+  emptyEl.style.display = "none";
+
+  rowsEl.innerHTML = filtered.map(p => {
     const tier = tierLevelToInfo(p.tier_level);
     const solved = solvedIds.has(p.id);
     return `
@@ -103,6 +152,20 @@ async function loadProblems() {
     `;
   }).join("");
 }
+
+let searchDebounceTimer = null;
+document.getElementById("title-search").addEventListener("input", (e) => {
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    titleQuery = e.target.value;
+    renderProblemList();
+  }, 200);
+});
+
+document.getElementById("tier-filter").addEventListener("change", (e) => {
+  tierFilter = e.target.value;
+  renderProblemList();
+});
 
 (async function init() {
   const params = new URLSearchParams(window.location.search);
