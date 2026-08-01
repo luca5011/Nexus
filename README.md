@@ -1,7 +1,7 @@
 # Nexus
 
 코딩(향후 개설)/수학/과학/국어 문제를 푸는 백준·정올 스타일 온라인 저지.
-과목별 독립 티어(Origin~Transcendent, 각 III→II→I), Elo 기반 레이팅, 코인상점, 칭호 시스템 포함.
+과목별 독립 티어(Origin~Omniscient, 각 III→II→I), Elo 기반 레이팅, 코인상점, 칭호 시스템 포함.
 
 ## 1. Supabase 프로젝트 준비
 
@@ -73,8 +73,8 @@ multi-subject-oj/
   `problem_answers` 테이블은 RLS로 완전히 잠겨있어서 클라이언트가 직접
   정답을 조회할 수 없고, `security definer` 함수만 접근 가능해요.
 - **레이팅 공식**: `E = 1 / (1 + 10^((문제티어레이팅 - 유저레이팅)/400))`,
-  `새 레이팅 = 유저레이팅 + 10 × (1 - E)`. 오답이어도 레이팅은 깎이지 않아요(강등 없음).
-- **티어 레벨 0~14**: `Origin III·II·I → Apex III·II·I → Zenith III·II·I → Infinity III·II·I → Transcendent III·II·I`,
+  `새 레이팅 = 유저레이팅 + 30 × (1 - E)`. 오답이어도 레이팅은 깎이지 않아요(강등 없음).
+- **티어 레벨 0~17**: `Origin III·II·I → Apex III·II·I → Zenith III·II·I → Infinity III·II·I → Transcendent III·II·I → Omniscient III·II·I`,
   레벨당 150레이팅.
 - **코인 지급**: 승급 시 +50, 본인 티어보다 3단계 이상 높은 문제 정답 시 +30
   (금액은 `sql/schema.sql` 의 `v_promo_coins`, `v_overtier_coins` 상수에서 조정 가능해요).
