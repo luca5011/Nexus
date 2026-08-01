@@ -26,6 +26,9 @@
         <div id="set-msg" class="form-msg"></div>
       </form>
 
+      <input id="set-search-input" type="text" placeholder="문제집 이름으로 검색"
+        style="width:100%; padding:11px 13px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--bg); color:var(--text); margin:16px 0 0;">
+
       <div id="sets-admin-list" style="margin-top:16px; display:flex; flex-direction:column; gap:14px;"></div>
     </section>
   </div>
@@ -59,21 +62,40 @@ async function init() {
     if (!error) { e.target.reset(); loadProblemSetsAdmin(); }
   });
 
+  let cachedSets = [];
+  let cachedProblems = [];
+  let cachedItems = [];
+  let searchQuery = "";
+
   async function loadProblemSetsAdmin() {
-    const listEl = document.getElementById("sets-admin-list");
     const { data: sets } = await sb.from("problem_sets").select("id, title, description").order("created_at", { ascending: true });
     const { data: allProblems } = await sb.from("problems").select("id, title, subject").order("title");
     const { data: allItems } = await sb.from("problem_set_items").select("problem_set_id, problem_id");
 
-    if (!sets || sets.length === 0) {
+    cachedSets = sets ?? [];
+    cachedProblems = allProblems ?? [];
+    cachedItems = allItems ?? [];
+    renderSetsList();
+  }
+
+  function renderSetsList() {
+    const listEl = document.getElementById("sets-admin-list");
+    const query = searchQuery.trim().toLowerCase();
+    const sets = query ? cachedSets.filter(s => s.title.toLowerCase().includes(query)) : cachedSets;
+
+    if (cachedSets.length === 0) {
       listEl.innerHTML = `<div class="empty-state">아직 만든 문제집이 없어요.</div>`;
+      return;
+    }
+    if (sets.length === 0) {
+      listEl.innerHTML = `<div class="empty-state">검색 결과가 없어요.</div>`;
       return;
     }
 
     listEl.innerHTML = sets.map(set => {
-      const memberIds = new Set((allItems ?? []).filter(it => it.problem_set_id === set.id).map(it => it.problem_id));
-      const memberProblems = (allProblems ?? []).filter(p => memberIds.has(p.id));
-      const nonMemberProblems = (allProblems ?? []).filter(p => !memberIds.has(p.id));
+      const memberIds = new Set(cachedItems.filter(it => it.problem_set_id === set.id).map(it => it.problem_id));
+      const memberProblems = cachedProblems.filter(p => memberIds.has(p.id));
+      const nonMemberProblems = cachedProblems.filter(p => !memberIds.has(p.id));
 
       return `
         <div class="card">
@@ -136,6 +158,11 @@ async function init() {
       });
     });
   }
+
+  document.getElementById("set-search-input").addEventListener("input", (e) => {
+    searchQuery = e.target.value;
+    renderSetsList();
+  });
 
   loadProblemSetsAdmin();
 }
