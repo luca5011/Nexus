@@ -14,8 +14,8 @@
         .content-wrapper { padding: 40px 24px; }
         h1 { text-align: center; margin-bottom: 40px; color: var(--accent, #e8c547); }
         /* 반응형 레이아웃 최적화 */
-        .tier-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; max-width: 1040px; margin: 0 auto; }
-        .tier-card { background-color: #2a2a35; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-top: 5px solid var(--tier-color, #fff); contain: content; } /* contain 속성으로 브라우저 최적화 유도 */
+        .tier-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1040px; margin: 0 auto; }
+        .tier-card { background-color: #2a2a35; border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-top: 5px solid var(--tier-color, #fff); contain: content; aspect-ratio: 1 / 1; display: flex; flex-direction: column; align-items: center; justify-content: center; } /* contain 속성으로 브라우저 최적화 유도 */
         .tier-level { font-size: 0.85rem; color: #aaa; margin-bottom: 10px; }
         .tier-rating-range { font-size: 0.9rem; color: #ccc; margin-top: 15px; }
         .tier-badge { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 12px; border-radius: 20px; background-color: rgba(255, 255, 255, 0.1); font-weight: bold; color: var(--tier-color, #fff); }
