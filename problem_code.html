@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>코딩 문제 풀이 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+  /* 코드 에디터 영역 (별도 라이브러리 없이 textarea 기반 최소 구현) */
+  .code-editor-wrap {
+    margin-top: 12px;
+  }
+  .code-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .code-toolbar select {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+  .code-toolbar .hint {
+    font-size: 12px;
+    color: var(--text-faint);
+  }
+  #code-input {
+    width: 100%;
+    min-height: 360px;
+    padding: 16px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    line-height: 1.6;
+    tab-size: 4;
+    resize: vertical;
+    white-space: pre;
+  }
+  #code-input:focus { outline: none; border-color: var(--accent); }
+
+  .sample-box {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .sample-box pre {
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    white-space: pre-wrap;
+    margin: 0;
+  }
+  .sample-box .sample-label {
+    font-size: 12px;
+    color: var(--text-faint);
+    margin-bottom: 6px;
+  }
+
+  #judge-status {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-top: 10px;
+  }
+  .spinner {
+    width: 14px; height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px; max-width:900px;">
+  <div id="tier-line" style="margin-bottom:8px;"></div>
+  <h1 id="title">불러오는 중...</h1>
+  <div id="content" class="problem-content"></div>
+
+  <div class="sample-box" id="sample-box" style="display:none;">
+    <div>
+      <div class="sample-label">예제 입력</div>
+      <pre id="sample-input"></pre>
+    </div>
+    <div>
+      <div class="sample-label">예제 출력</div>
+      <pre id="sample-output"></pre>
+    </div>
+  </div>
+
+  <div class="code-editor-wrap">
+    <div class="code-toolbar">
+      <select id="lang-select">
+        <option value="cpp17">C++17</option>
+        <option value="python3">Python 3</option>
+        <option value="java">Java</option>
+        <option value="javascript">JavaScript (Node)</option>
+      </select>
+      <span class="hint">채점 백엔드 연동 전까지는 코드가 저장되지 않아요 (새로고침 시 초기화)</span>
+    </div>
+    <textarea id="code-input" spellcheck="false" placeholder="여기에 코드를 작성하세요"></textarea>
+  </div>
+
+  <div id="result" class="result-banner"></div>
+  <div id="judge-status"><span class="spinner"></span> 채점 중...</div>
+
+  <button id="submit-btn" class="btn btn--primary" style="margin-top:12px;">제출</button>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+const problemId = new URLSearchParams(window.location.search).get("id");
+
+// 언어 선택은 코드 입력창의 탭 동작에만 영향. 실제 실행 언어는 채점 백엔드 스펙이 정해지면
+// p_language 파라미터로 그대로 넘기면 됨.
+document.getElementById("code-input").addEventListener("keydown", (e) => {
+  if (e.key !== "Tab") return;
+  e.preventDefault();
+  const el = e.target;
+  const start = el.selectionStart, end = el.selectionEnd;
+  el.value = el.value.slice(0, start) + "    " + el.value.slice(end);
+  el.selectionStart = el.selectionEnd = start + 4;
+});
+
+async function loadProblem() {
+  await renderNav("problems");
+
+  if (!problemId) {
+    document.getElementById("title").textContent = "문제를 찾을 수 없어요.";
+    return;
+  }
+
+  // sample_input / sample_output 컬럼은 아직 스키마에 없을 수 있음 — 있으면 표시, 없으면 그냥 숨김
+  const { data: p, error } = await sb
+    .from("problems")
+    .select("id, title, content, tier_level, subject, sample_input, sample_output")
+    .eq("id", problemId)
+    .single();
+
+  if (error || !p) {
+    document.getElementById("title").textContent = "문제를 찾을 수 없어요.";
+    return;
+  }
+
+  const tier = tierLevelToInfo(p.tier_level);
+  document.getElementById("tier-line").innerHTML = `
+    <span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span>
+    <span style="color:var(--text-faint); margin-left:8px; font-size:13px;">${SUBJECTS.coding?.label ?? "코딩"}</span>
+  `;
+  document.getElementById("title").textContent = p.title;
+  document.getElementById("content").textContent = p.content;
+
+  if (p.sample_input || p.sample_output) {
+    document.getElementById("sample-box").style.display = "grid";
+    document.getElementById("sample-input").textContent = p.sample_input ?? "";
+    document.getElementById("sample-output").textContent = p.sample_output ?? "";
+  }
+}
+
+async function submitAnswer() {
+  const user = await requireAuth();
+  if (!user) return;
+
+  const code = document.getElementById("code-input").value;
+  const language = document.getElementById("lang-select").value;
+
+  if (!code.trim()) { alert("코드를 입력해주세요."); return; }
+
+  const btn = document.getElementById("submit-btn");
+  const statusEl = document.getElementById("judge-status");
+  const resultEl = document.getElementById("result");
+
+  btn.disabled = true;
+  statusEl.style.display = "flex";
+  resultEl.style.display = "none";
+
+  // ── 채점 백엔드 연동 지점 ──────────────────────────────────────────
+  // 백엔드(뤀카님 컴파일러 / Pacto7107님 채점 프로그램)가 정해지면
+  // 아래 부분을 실제 RPC 또는 API 호출로 교체하면 됨.
+  // 예상 형태: sb.rpc("submit_code_answer", { p_problem_id, p_language, p_code })
+  try {
+    const { error } = await sb.rpc("submit_code_answer", {
+      p_problem_id: problemId,
+      p_language: language,
+      p_code: code,
+    });
+
+    if (error) throw error;
+    // TODO: 실제 채점 결과 데이터 형태에 맞춰 아래 표시 로직 교체
+  } catch (err) {
+    resultEl.style.display = "block";
+    resultEl.className = "result-banner result-banner--wrong";
+    resultEl.textContent = "채점 백엔드가 아직 준비되지 않았어요. (개발중: " + err.message + ")";
+  }
+  // ─────────────────────────────────────────────────────────────────
+
+  statusEl.style.display = "none";
+  btn.disabled = false;
+}
+
+document.getElementById("submit-btn").addEventListener("click", submitAnswer);
+loadProblem();
+</script>
+</body>
+</html>
