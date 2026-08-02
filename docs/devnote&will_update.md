@@ -77,6 +77,7 @@ Upcoming version : 1.11
 Pacto7107가 spl 실행을 원할까요?
 - [x] Yes (예)
 - [ ] No (아니오)
+
 luca 또는 Pacto7107 가 실행했나요?
 - [ ] Yes (예)
 - [x] Waiting (대기)
