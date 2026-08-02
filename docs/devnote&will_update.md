@@ -75,11 +75,12 @@ The version we are making : 1.11 <span style="background-color:#00a">채점 기�
 Upcoming version : 1.11  
 ## to luca
 Pacto7107가 spl 실행을 원할까요?
-- [#] Yes (예)
+- [x] Yes (예)
 - [ ] No (아니오)
+
 luca 또는 Pacto7107 가 실행했나요?
 - [ ] Yes (예)
-- [#] Waiting (대기)
+- [x] Waiting (대기)
 # Will_update
 - [x] 검색 기능
 - [x] 관리자 메뉴 정리
