@@ -5,6 +5,12 @@ async function renderNav(activePage) {
   const root = document.getElementById("nav-root");
   if (!root) return;
 
+  // 페이지 렌더 전에 티어 설정(RATING_PER_LEVEL)부터 동기화 —
+  // 이후 이 페이지에서 쓰이는 tierLevelToInfo/ratingToTierDisplay 등이 정확한 값을 쓰게 됨
+  if (typeof syncRatingPerLevel === "function") {
+    await syncRatingPerLevel();
+  }
+
   let user = null;
   let profile = null;
 
@@ -32,7 +38,6 @@ async function renderNav(activePage) {
     { href: "ranking.html", label: "랭킹", key: "ranking" },
     { href: "show_tier_list.html", label: "티어 목록", key: "tiers" }, // 티어 메뉴 추가
     { href: "shop.html", label: "상점", key: "shop" },
-    { href: "submissions.html", label: "채점 기록", key: "submissions" }, // 채점 기록 메뉴 추가
     { href: "devnotes.html", label: "개발자노트", key: "devnotes" },
   ];
 

@@ -69,6 +69,10 @@ by Pacto7107
 by Pacto7107
 ### <span style="background-color:#00a">1.12</span> 티어 올솔 배경
 by Pacto7107
+### <span style="background-color:#00a">1.13</span> 레이팅 제도 바꿈
+기존 레이팅은 문제가 있었습니다.
+
+by Pacto7107
 # organize devnote
 ## Contributors
 <span style="background-color:#00a">by Pacto7107</span>  

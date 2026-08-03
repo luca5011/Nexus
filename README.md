@@ -72,10 +72,10 @@ multi-subject-oj/
 - **정답 채점은 전부 서버(Postgres 함수 `submit_answer`)에서 처리**돼요.
   `problem_answers` 테이블은 RLS로 완전히 잠겨있어서 클라이언트가 직접
   정답을 조회할 수 없고, `security definer` 함수만 접근 가능해요.
-- **레이팅 공식**: `E = 1 / (1 + 10^((문제티어레이팅 - 유저레이팅)/400))`,
-  `새 레이팅 = 유저레이팅 + 30 × (1 - E)`. 오답이어도 레이팅은 깎이지 않아요(강등 없음).
+- **레이팅 공식**: 문제를 정답 처리(최초 1회)할 때마다 `유저 레이팅 += (문제 티어 레벨 + 1)`. 예전엔 Elo 방식이었는데, 풀이 순서에 따라 최종 레이팅이 미세하게 달라지는 문제가 있어서 "푼 문제들의 티어 점수 합" 방식으로 바꿨어요. 오답이어도 레이팅은 깎이지 않아요(강등 없음).
+- **티어 승급 폭**: `sql/schema.sql`의 `app_settings.rating_per_level` 값 (하드코딩 아님, 언제든 `update app_settings set rating_per_level = 원하는값 where id = 1;`로 조정 가능. 기본값 80)
 - **티어 레벨 0~17**: `Origin III·II·I → Apex III·II·I → Zenith III·II·I → Infinity III·II·I → Transcendent III·II·I → Omniscient III·II·I`,
-  레벨당 150레이팅.
+  레벨당 `app_settings.rating_per_level`만큼 (기본 80).
 - **코인 지급**: 승급 시 +50, 본인 티어보다 3단계 이상 높은 문제 정답 시 +30
   (금액은 `sql/schema.sql` 의 `v_promo_coins`, `v_overtier_coins` 상수에서 조정 가능해요).
 - **자동 칭호**: 티어 승급 칭호는 `titles.acquire_type='auto_tier'` 로 과목+티어레벨을

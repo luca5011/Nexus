@@ -14,8 +14,21 @@ const SUBJECT_ORDER = ["coding", "math", "science", "korean"];
 // 6대 티어, 각 3단계(III -> II -> I 순으로 승급)
 const TIER_NAMES = ["Origin", "Apex", "Zenith", "Infinity", "Transcendent", "Omniscient"];
 const SUB_RANKS = ["III", "II", "I"];
-const RATING_PER_LEVEL = 150;
+// ★ 하드코딩 대신 DB(app_settings.rating_per_level)에서 동기화됨. 기본값은 동기화 전 임시값.
+let RATING_PER_LEVEL = 80;
 const MAX_TIER_LEVEL = TIER_NAMES.length * SUB_RANKS.length - 1; // 17
+
+/** app_settings에서 실제 RATING_PER_LEVEL 값을 가져와 동기화 (nav.js의 renderNav에서 자동 호출됨) */
+async function syncRatingPerLevel() {
+  try {
+    const { data, error } = await sb.from("app_settings").select("rating_per_level").eq("id", 1).single();
+    if (!error && data?.rating_per_level) {
+      RATING_PER_LEVEL = data.rating_per_level;
+    }
+  } catch (err) {
+    console.error("티어 설정(RATING_PER_LEVEL) 동기화 실패, 기본값 사용:", err);
+  }
+}
 
 // 티어 컬러 (Origin -> Omniscient 로 갈수록 화려해짐)
 const TIER_COLORS = {
