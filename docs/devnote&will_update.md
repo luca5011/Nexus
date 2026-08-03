@@ -64,25 +64,31 @@ by Pacto7107
 문제집 관리 페이지 검색 기능 추가
 
 by Pacto7107
+## 2026. 08. 03
+### <span style="background-color:#00a">1.11</span>  채점 목록
+by Pacto7107
+### <span style="background-color:#00a">1.12</span> 티어 올솔 배경
+by Pacto7107
 # organize devnote
 ## Contributors
 <span style="background-color:#00a">by Pacto7107</span>  
 <span style="background-color:#094">by luca</span>
 
 ## Version
-Last version : 1.102  
-The version we are making : 1.11 <span style="background-color:#00a">채점 기록</span>  
-Upcoming version : 1.11  
+Last version : 1.12  
+The version we are making : 1.13 코딩 준비 
+Upcoming version : 1.13  
 ## to luca
 Pacto7107가 spl 실행을 원할까요?
-- [x] Yes (예)
-- [ ] No (아니오)
+- [ ] Yes (예)
+- [x] No (아니오)
 
 luca 또는 Pacto7107 가 실행했나요?
-- [ ] Yes (예)
-- [x] Waiting (대기)
+- [x] Yes (예)
+- [ ] Waiting (대기)
 # Will_update
 - [x] 검색 기능
 - [x] 관리자 메뉴 정리
-- [ ] 채점 기록 (want spl)
+- [x] 채점 기록 (want spl)
+- [x] 티어 올솔 배경
 - [ ] 코딩 준비
