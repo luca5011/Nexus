@@ -79,9 +79,9 @@ by Pacto7107
 <span style="background-color:#094">by luca</span>
 
 ## Version
-Last version : 1.12  
-The version we are making : 1.13 코딩 준비 
-Upcoming version : 1.13  
+Last version : 1.13  
+The version we are making : 1.14 문제 수식 지원
+Upcoming version : 1.14  
 ## to luca
 Pacto7107가 spl 실행을 원할까요?
 - [ ] Yes (예)
@@ -91,8 +91,6 @@ luca 또는 Pacto7107 가 실행했나요?
 - [x] Yes (예)
 - [ ] Waiting (대기)
 # Will_update
-- [x] 검색 기능
-- [x] 관리자 메뉴 정리
-- [x] 채점 기록 (want spl)
-- [x] 티어 올솔 배경
+- [ ] 문제 수식 지원
+- [ ] 통합 랭킹
 - [ ] 코딩 준비
