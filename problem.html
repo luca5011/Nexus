@@ -62,6 +62,7 @@ async function loadProblem() {
     ? `
       <span style="color:var(--accent); font-size:13px; font-weight:600;">${p.contests.title} 대회 문제</span>
       <span style="color:var(--text-faint); margin-left:8px; font-size:13px;">${SUBJECTS[p.subject].label}</span>
+      ${p.answer_type === "objective" ? `<span style="color:var(--danger); margin-left:8px; font-size:13px; font-weight:600;">· 객관식 1회만 제출 가능</span>` : ""}
     `
     : `
       <span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span>
@@ -119,7 +120,7 @@ async function submitAnswer() {
   btn.disabled = true;
   btn.textContent = "채점 중...";
 
-  const { data, error } = await sb.rpc("submit_answer", {
+  const { data, error } = await sb.rpc("submit_answer_guarded", {
     p_problem_id: problemId,
     p_answer: answer,
   });
@@ -134,6 +135,8 @@ async function submitAnswer() {
     resultEl.className = "result-banner result-banner--wrong";
     if (error.message.includes("BANNED")) {
       resultEl.textContent = "이 계정은 밴 처리되어 문제를 제출할 수 없어요.";
+    } else if (error.message.includes("ALREADY_ATTEMPTED")) {
+      resultEl.textContent = "대회 객관식 문제는 1회만 제출할 수 있어요. 이미 제출했어요.";
     } else {
       resultEl.textContent = "제출 중 오류가 발생했어요: " + error.message;
     }
