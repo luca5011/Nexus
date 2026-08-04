@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>코딩 문제 관리 · Nexus</title>
+<link rel="stylesheet" href="css/style.css">
+<script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="icon" type="image/png" href="favicon.png">
+<style>
+  .testcase-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 8px;
+    align-items: start;
+    margin-bottom: 10px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .testcase-row textarea {
+    width: 100%;
+    min-height: 70px;
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+  }
+  .testcase-row .tc-label { font-size: 11px; color: var(--text-faint); margin-bottom: 4px; }
+</style>
+</head>
+<body>
+<div id="nav-root"></div>
+
+<main class="page" style="padding-top:32px;">
+  <a href="admin.html" class="btn btn--ghost" style="font-size:13px; padding:6px 10px; margin-bottom:12px;">← 관리자 메뉴</a>
+  <h1>코딩 문제 관리</h1>
+  <p style="color:var(--text-muted); font-size:13px;">총관리자 전용 · Judge0 채점용 문제와 테스트케이스를 관리해요.</p>
+  <div id="guard-msg"></div>
+
+  <div id="admin-body" style="display:none;">
+
+    <section class="admin-section">
+      <h2>코딩 문제 추가</h2>
+      <form id="problem-form" class="card">
+        <div class="field">
+          <label>티어 레벨 (0=Origin III ~ 17=Omniscient I)</label>
+          <input id="p-tier" type="number" min="0" max="17" value="0">
+        </div>
+        <div class="field"><label>제목</label><input id="p-title" type="text" required></div>
+        <div class="field"><label>문제 내용</label><textarea id="p-content" rows="6" required></textarea></div>
+
+        <div class="field"><label>예제 입력 (참가자에게 공개돼요)</label><textarea id="p-sample-input" rows="3"></textarea></div>
+        <div class="field"><label>예제 출력 (참가자에게 공개돼요)</label><textarea id="p-sample-output" rows="3"></textarea></div>
+
+        <div class="field">
+          <label>시간 제한 (밀리초)</label>
+          <input id="p-time-limit" type="number" min="100" step="100" value="2000">
+        </div>
+        <div class="field">
+          <label>메모리 제한 (KB)</label>
+          <input id="p-memory-limit" type="number" min="1024" step="1024" value="262144">
+        </div>
+
+        <div class="field">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input id="p-published" type="checkbox" checked style="width:auto;">
+            공개 (체크 해제하면 링크가 있어도 안 풀려요 — 이벤트 시작 전 미리 준비할 때 유용)
+          </label>
+        </div>
+
+        <h3 style="margin-top:20px; font-size:15px;">테스트케이스 (채점용, 참가자에게 절대 공개 안 됨)</h3>
+        <div id="testcase-list"></div>
+        <button type="button" id="add-testcase-btn" class="btn btn--ghost" style="font-size:13px;">+ 테스트케이스 추가</button>
+
+        <div style="margin-top:20px;">
+          <button type="submit" id="problem-submit-btn" class="btn btn--primary">코딩 문제 등록</button>
+          <button type="button" id="problem-cancel-edit-btn" class="btn btn--ghost" style="display:none;">수정 취소</button>
+        </div>
+        <div id="problem-msg" class="form-msg"></div>
+      </form>
+    </section>
+
+    <section class="admin-section">
+      <h2>코딩 문제 목록</h2>
+      <div class="card" style="padding:0; overflow:hidden;">
+        <table class="problem-table">
+          <thead><tr><th>티어</th><th>제목</th><th>공개</th><th style="width:140px;"></th></tr></thead>
+          <tbody id="problem-list-rows"></tbody>
+        </table>
+        <div id="problem-list-empty" class="empty-state" style="display:none;">등록된 코딩 문제가 없어요.</div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script src="js/supabase-client.js"></script>
+<script src="js/tier.js"></script>
+<script src="js/nav.js"></script>
+<script>
+let testcaseCounter = 0;
+
+function addTestcaseRow(input = "", output = "") {
+  testcaseCounter += 1;
+  const id = `tc-${testcaseCounter}`;
+  const wrap = document.createElement("div");
+  wrap.className = "testcase-row";
+  wrap.dataset.tcId = id;
+  wrap.innerHTML = `
+    <div>
+      <div class="tc-label">입력</div>
+      <textarea class="tc-input">${escapeHtml(input)}</textarea>
+    </div>
+    <div>
+      <div class="tc-label">기대 출력</div>
+      <textarea class="tc-output">${escapeHtml(output)}</textarea>
+    </div>
+    <button type="button" class="btn btn--ghost" style="font-size:12px; padding:6px 8px;" data-remove-tc>삭제</button>
+  `;
+  wrap.querySelector("[data-remove-tc]").addEventListener("click", () => wrap.remove());
+  document.getElementById("testcase-list").appendChild(wrap);
+}
+
+function resetTestcaseRows() {
+  document.getElementById("testcase-list").innerHTML = "";
+  addTestcaseRow();
+}
+
+async function init() {
+  await renderNav("admin");
+  const user = await requireAuth();
+  if (!user) return;
+
+  const { data: profile } = await sb.from("profiles").select("is_super_admin").eq("id", user.id).single();
+  if (!profile?.is_super_admin) {
+    document.getElementById("guard-msg").innerHTML = `<p style="color:var(--danger)">총관리자 계정만 접근할 수 있어요.</p>`;
+    return;
+  }
+  document.getElementById("admin-body").style.display = "block";
+
+  resetTestcaseRows();
+  document.getElementById("add-testcase-btn").addEventListener("click", () => addTestcaseRow());
+
+  let editingProblemId = null;
+
+  function resetProblemForm() {
+    editingProblemId = null;
+    document.getElementById("problem-form").reset();
+    document.getElementById("p-time-limit").value = 2000;
+    document.getElementById("p-memory-limit").value = 262144;
+    document.getElementById("p-published").checked = true;
+    resetTestcaseRows();
+    document.getElementById("problem-submit-btn").textContent = "코딩 문제 등록";
+    document.getElementById("problem-cancel-edit-btn").style.display = "none";
+  }
+
+  document.getElementById("problem-cancel-edit-btn").addEventListener("click", resetProblemForm);
+
+  document.getElementById("problem-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const msg = document.getElementById("problem-msg");
+    msg.textContent = ""; msg.className = "form-msg";
+
+    const tier_level = parseInt(document.getElementById("p-tier").value, 10);
+    const title = document.getElementById("p-title").value.trim();
+    const content = document.getElementById("p-content").value.trim();
+    const sample_input = document.getElementById("p-sample-input").value;
+    const sample_output = document.getElementById("p-sample-output").value;
+    const time_limit_ms = parseInt(document.getElementById("p-time-limit").value, 10);
+    const memory_limit_kb = parseInt(document.getElementById("p-memory-limit").value, 10);
+    const is_published = document.getElementById("p-published").checked;
+
+    const testcaseRows = [...document.querySelectorAll(".testcase-row")].map(row => ({
+      input: row.querySelector(".tc-input").value,
+      expected_output: row.querySelector(".tc-output").value,
+    })).filter(tc => tc.input.trim() !== "" || tc.expected_output.trim() !== "");
+
+    if (testcaseRows.length === 0) {
+      msg.textContent = "테스트케이스를 최소 1개 이상 입력해주세요.";
+      msg.classList.add("form-msg--error");
+      return;
+    }
+
+    const payload = {
+      subject: "coding",
+      answer_type: "coding",
+      tier_level, title, content,
+      sample_input: sample_input || null,
+      sample_output: sample_output || null,
+      time_limit_ms, memory_limit_kb,
+      is_published,
+    };
+
+    let problem;
+    if (editingProblemId) {
+      const { data, error: pErr } = await sb.from("problems").update(payload).eq("id", editingProblemId).select().single();
+      if (pErr) { msg.textContent = pErr.message; msg.classList.add("form-msg--error"); return; }
+      problem = data;
+      await sb.from("problem_testcases").delete().eq("problem_id", problem.id);
+    } else {
+      const { data, error: pErr } = await sb.from("problems").insert({ ...payload, created_by: user.id }).select().single();
+      if (pErr) { msg.textContent = pErr.message; msg.classList.add("form-msg--error"); return; }
+      problem = data;
+    }
+
+    const tcRows = testcaseRows.map((tc, i) => ({
+      problem_id: problem.id,
+      input: tc.input,
+      expected_output: tc.expected_output,
+      testcase_order: i,
+    }));
+    const { error: tcErr } = await sb.from("problem_testcases").insert(tcRows);
+    if (tcErr) { msg.textContent = "문제는 저장됐지만 테스트케이스 저장에 실패했어요: " + tcErr.message; msg.classList.add("form-msg--error"); return; }
+
+    msg.textContent = editingProblemId ? "코딩 문제를 수정했어요." : "코딩 문제를 등록했어요.";
+    msg.classList.add("form-msg--success");
+    resetProblemForm();
+    loadProblemList();
+  });
+
+  async function loadProblemList() {
+    const rowsEl = document.getElementById("problem-list-rows");
+    const emptyEl = document.getElementById("problem-list-empty");
+
+    const { data: problems, error } = await sb
+      .from("problems")
+      .select("id, tier_level, title, is_published")
+      .eq("subject", "coding")
+      .eq("answer_type", "coding")
+      .order("created_at", { ascending: false });
+
+    if (error || !problems || problems.length === 0) {
+      emptyEl.style.display = "block";
+      rowsEl.innerHTML = "";
+      return;
+    }
+    emptyEl.style.display = "none";
+
+    rowsEl.innerHTML = problems.map(p => {
+      const tier = tierLevelToInfo(p.tier_level);
+      return `
+        <tr>
+          <td><span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span></td>
+          <td>${escapeHtml(p.title)}</td>
+          <td style="color:${p.is_published ? "var(--success)" : "var(--text-faint)"}; font-size:13px;">${p.is_published ? "공개" : "비공개"}</td>
+          <td>
+            <button class="btn btn--ghost" data-edit-id="${p.id}" style="font-size:12px; padding:5px 8px;">수정</button>
+            <button class="btn btn--ghost" data-copy-link="${p.id}" style="font-size:12px; padding:5px 8px;">링크 복사</button>
+            <button class="btn btn--danger" data-delete-id="${p.id}" style="font-size:12px; padding:5px 8px;">삭제</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    rowsEl.querySelectorAll("button[data-edit-id]").forEach(btn => {
+      btn.addEventListener("click", () => loadProblemIntoForm(btn.dataset.editId));
+    });
+    rowsEl.querySelectorAll("button[data-delete-id]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("이 코딩 문제를 삭제할까요? 테스트케이스도 같이 삭제돼요.")) return;
+        await sb.from("problems").delete().eq("id", btn.dataset.deleteId);
+        loadProblemList();
+      });
+    });
+    rowsEl.querySelectorAll("button[data-copy-link]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const url = `${window.location.origin}${window.location.pathname.replace("admin-code-problems.html", "problem_code.html")}?id=${btn.dataset.copyLink}`;
+        navigator.clipboard?.writeText(url);
+        alert("링크를 복사했어요:\n" + url);
+      });
+    });
+  }
+
+  async function loadProblemIntoForm(problemId) {
+    const { data: problem } = await sb.from("problems").select("*").eq("id", problemId).single();
+    if (!problem) return;
+
+    editingProblemId = problem.id;
+    document.getElementById("p-tier").value = problem.tier_level;
+    document.getElementById("p-title").value = problem.title;
+    document.getElementById("p-content").value = problem.content;
+    document.getElementById("p-sample-input").value = problem.sample_input ?? "";
+    document.getElementById("p-sample-output").value = problem.sample_output ?? "";
+    document.getElementById("p-time-limit").value = problem.time_limit_ms ?? 2000;
+    document.getElementById("p-memory-limit").value = problem.memory_limit_kb ?? 262144;
+    document.getElementById("p-published").checked = !!problem.is_published;
+
+    const { data: testcases } = await sb
+      .from("problem_testcases")
+      .select("input, expected_output")
+      .eq("problem_id", problem.id)
+      .order("testcase_order");
+
+    document.getElementById("testcase-list").innerHTML = "";
+    if (testcases && testcases.length > 0) {
+      testcases.forEach(tc => addTestcaseRow(tc.input, tc.expected_output));
+    } else {
+      addTestcaseRow();
+    }
+
+    document.getElementById("problem-submit-btn").textContent = "코딩 문제 수정";
+    document.getElementById("problem-cancel-edit-btn").style.display = "inline-flex";
+    document.getElementById("problem-form").scrollIntoView({ behavior: "smooth" });
+  }
+
+  loadProblemList();
+}
+
+init();
+</script>
+</body>
+</html>
