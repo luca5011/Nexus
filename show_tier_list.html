@@ -21,7 +21,6 @@
         .tier-badge { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 12px; border-radius: 20px; background-color: rgba(255, 255, 255, 0.1); font-weight: bold; color: var(--tier-color, #fff); }
         .tier-badge--lg { font-size: 1.2rem; padding: 10px 20px; }
     </style>
-    <!-- 외부 스크립트는 비동기(defer)로 로드하여 초기 화면 렌더링 속도 향상 -->
 <link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
@@ -30,8 +29,8 @@
         <h1>Nexus 전체 티어 목록</h1>
         <div id="tierContainer" class="tier-grid"></div>
     </div>
-    <script src="js/supabase-client.js" defer></script>
-    <script src="js/tier.js" defer></script>
+    <script src="js/supabase-client.js"></script>
+    <script src="js/tier.js"></script>
     <script src="js/nav.js"></script>
 
     <script>
