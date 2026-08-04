@@ -66,11 +66,18 @@
     font-size: 12.5px;
     white-space: pre-wrap;
     margin: 0;
+    min-height: 20px;
   }
   .sample-box .sample-label {
     font-size: 12px;
     color: var(--text-faint);
     margin-bottom: 6px;
+  }
+  .limit-line {
+    font-size: 12px;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    margin-top: 6px;
   }
 
   #judge-status {
@@ -89,6 +96,8 @@
     animation: spin .7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 </style>
 </head>
 <body>
@@ -98,6 +107,7 @@
   <div id="tier-line" style="margin-bottom:8px;"></div>
   <h1 id="title">불러오는 중...</h1>
   <div id="content" class="problem-content"></div>
+  <div id="limit-line" class="limit-line"></div>
 
   <div class="sample-box" id="sample-box" style="display:none;">
     <div>
@@ -110,33 +120,47 @@
     </div>
   </div>
 
+  <div class="sample-box" id="run-result-box" style="display:none;">
+    <div>
+      <div class="sample-label">내 코드의 실제 출력 (예제 입력 기준)</div>
+      <pre id="run-actual-output"></pre>
+    </div>
+    <div>
+      <div class="sample-label">상태</div>
+      <pre id="run-status"></pre>
+    </div>
+  </div>
+
   <div class="code-editor-wrap">
     <div class="code-toolbar">
       <select id="lang-select">
-        <option value="cpp17">C++17</option>
-        <option value="python3">Python 3</option>
+        <option value="c">C</option>
+        <option value="cpp" selected>C++</option>
         <option value="java">Java</option>
-        <option value="javascript">JavaScript (Node)</option>
+        <option value="python">Python 3</option>
       </select>
-      <span class="hint">채점 백엔드 연동 전까지는 코드가 저장되지 않아요 (새로고침 시 초기화)</span>
+      <span class="hint" id="judge0-hint"></span>
     </div>
     <textarea id="code-input" spellcheck="false" placeholder="여기에 코드를 작성하세요"></textarea>
   </div>
 
+  <div id="judge-status"><span class="spinner"></span> <span id="judge-status-text">채점 중...</span></div>
   <div id="result" class="result-banner"></div>
-  <div id="judge-status"><span class="spinner"></span> 채점 중...</div>
 
-  <button id="submit-btn" class="btn btn--primary" style="margin-top:12px;">제출</button>
+  <div class="btn-row">
+    <button id="run-btn" class="btn btn--ghost">예제로 테스트</button>
+    <button id="submit-btn" class="btn btn--primary">제출</button>
+  </div>
 </main>
 
 <script src="js/supabase-client.js"></script>
 <script src="js/tier.js"></script>
+<script src="js/judge0-client.js"></script>
 <script src="js/nav.js"></script>
 <script>
 const problemId = new URLSearchParams(window.location.search).get("id");
+let currentProblem = null;
 
-// 언어 선택은 코드 입력창의 탭 동작에만 영향. 실제 실행 언어는 채점 백엔드 스펙이 정해지면
-// p_language 파라미터로 그대로 넘기면 됨.
 document.getElementById("code-input").addEventListener("keydown", (e) => {
   if (e.key !== "Tab") return;
   e.preventDefault();
@@ -149,22 +173,27 @@ document.getElementById("code-input").addEventListener("keydown", (e) => {
 async function loadProblem() {
   await renderNav("problems");
 
+  if (!isJudge0Configured()) {
+    document.getElementById("judge0-hint").textContent = "채점 서버 설정 전이라 아직 실제 채점은 안 돼요.";
+  }
+
   if (!problemId) {
     document.getElementById("title").textContent = "문제를 찾을 수 없어요.";
     return;
   }
 
-  // sample_input / sample_output 컬럼은 아직 스키마에 없을 수 있음 — 있으면 표시, 없으면 그냥 숨김
   const { data: p, error } = await sb
     .from("problems")
-    .select("id, title, content, tier_level, subject, sample_input, sample_output")
+    .select("id, title, content, tier_level, subject, sample_input, sample_output, time_limit_ms, memory_limit_kb")
     .eq("id", problemId)
+    .eq("answer_type", "coding")
     .single();
 
   if (error || !p) {
     document.getElementById("title").textContent = "문제를 찾을 수 없어요.";
     return;
   }
+  currentProblem = p;
 
   const tier = tierLevelToInfo(p.tier_level);
   document.getElementById("tier-line").innerHTML = `
@@ -173,6 +202,8 @@ async function loadProblem() {
   `;
   document.getElementById("title").textContent = p.title;
   document.getElementById("content").textContent = p.content;
+  document.getElementById("limit-line").textContent =
+    `시간 제한 ${(p.time_limit_ms / 1000).toFixed(1)}초 · 메모리 제한 ${Math.round(p.memory_limit_kb / 1024)}MB`;
 
   if (p.sample_input || p.sample_output) {
     document.getElementById("sample-box").style.display = "grid";
@@ -181,47 +212,164 @@ async function loadProblem() {
   }
 }
 
+/** "예제로 테스트" — 채점(레이팅 반영) 없이 예제 입력으로만 한 번 돌려서 결과를 보여줌 */
+async function runSample() {
+  if (!isJudge0Configured()) {
+    alert("채점 서버(Judge0) 주소가 아직 설정되지 않았어요.");
+    return;
+  }
+  const code = document.getElementById("code-input").value;
+  if (!code.trim()) { alert("코드를 입력해주세요."); return; }
+
+  const runBtn = document.getElementById("run-btn");
+  const statusEl = document.getElementById("judge-status");
+  const statusTextEl = document.getElementById("judge-status-text");
+  runBtn.disabled = true;
+  statusEl.style.display = "flex";
+  statusTextEl.textContent = "예제 입력으로 실행 중...";
+
+  try {
+    const lang = document.getElementById("lang-select").value;
+    const res = await runOnJudge0(code, lang, currentProblem.sample_input ?? "", {
+      timeLimitMs: currentProblem.time_limit_ms,
+      memoryLimitKb: currentProblem.memory_limit_kb,
+    });
+
+    document.getElementById("run-result-box").style.display = "grid";
+    document.getElementById("run-actual-output").textContent = res.stdout || res.stderr || res.compileOutput || "(출력 없음)";
+    document.getElementById("run-status").textContent = judge0StatusLabel(res.statusId);
+  } catch (err) {
+    alert("실행 중 오류: " + err.message);
+  }
+
+  statusEl.style.display = "none";
+  runBtn.disabled = false;
+}
+
 async function submitAnswer() {
   const user = await requireAuth();
   if (!user) return;
 
+  if (!isJudge0Configured()) {
+    alert("채점 서버(Judge0) 주소가 아직 설정되지 않았어요. 관리자에게 문의하세요.");
+    return;
+  }
+
   const code = document.getElementById("code-input").value;
   const language = document.getElementById("lang-select").value;
-
   if (!code.trim()) { alert("코드를 입력해주세요."); return; }
 
   const btn = document.getElementById("submit-btn");
+  const runBtn = document.getElementById("run-btn");
   const statusEl = document.getElementById("judge-status");
+  const statusTextEl = document.getElementById("judge-status-text");
   const resultEl = document.getElementById("result");
 
   btn.disabled = true;
+  runBtn.disabled = true;
   statusEl.style.display = "flex";
   resultEl.style.display = "none";
 
-  // ── 채점 백엔드 연동 지점 ──────────────────────────────────────────
-  // 백엔드(뤀카님 컴파일러 / Pacto7107님 채점 프로그램)가 정해지면
-  // 아래 부분을 실제 RPC 또는 API 호출로 교체하면 됨.
-  // 예상 형태: sb.rpc("submit_code_answer", { p_problem_id, p_language, p_code })
   try {
-    const { error } = await sb.rpc("submit_code_answer", {
+    // 1) 이 문제의 테스트케이스 "입력"만 서버에서 받아옴 (정답은 절대 안 옴)
+    const { data: testcases, error: tcErr } = await sb.rpc("get_code_testcases", { p_problem_id: problemId });
+    if (tcErr) throw tcErr;
+    if (!testcases || testcases.length === 0) {
+      resultEl.style.display = "block";
+      resultEl.className = "result-banner result-banner--wrong";
+      resultEl.textContent = "이 문제에는 아직 테스트케이스가 등록되지 않았어요.";
+      return;
+    }
+
+    // 2) 각 테스트케이스를 Judge0로 직접 실행해서 "내 코드의 실제 출력"을 모음
+    const results = [];
+    for (let i = 0; i < testcases.length; i++) {
+      statusTextEl.textContent = `테스트케이스 ${i + 1}/${testcases.length} 실행 중...`;
+      const tc = testcases[i];
+      const res = await runOnJudge0(code, language, tc.input, {
+        timeLimitMs: currentProblem.time_limit_ms,
+        memoryLimitKb: currentProblem.memory_limit_kb,
+      });
+
+      if (res.statusId === 6) {
+        // 컴파일 에러면 더 돌릴 필요 없이 바로 중단
+        resultEl.style.display = "block";
+        resultEl.className = "result-banner result-banner--wrong";
+        resultEl.textContent = "컴파일 에러: " + (res.compileOutput || "(자세한 내용 없음)");
+        return;
+      }
+
+      results.push({ testcase_id: tc.id, actual_output: res.stdout ?? "" });
+    }
+
+    // 3) 서버(진짜 정답을 들고 있는 곳)에 결과를 보내서 채점 + 레이팅/코인/칭호 반영
+    statusTextEl.textContent = "채점 결과 반영 중...";
+    const { data, error } = await sb.rpc("submit_code_answer", {
       p_problem_id: problemId,
       p_language: language,
       p_code: code,
+      p_results: results,
     });
 
-    if (error) throw error;
-    // TODO: 실제 채점 결과 데이터 형태에 맞춰 아래 표시 로직 교체
+    resultEl.style.display = "block";
+
+    if (error) {
+      resultEl.className = "result-banner result-banner--wrong";
+      if (error.message.includes("BANNED")) {
+        resultEl.textContent = "이 계정은 밴 처리되어 문제를 제출할 수 없어요.";
+      } else {
+        resultEl.textContent = "제출 중 오류가 발생했어요: " + error.message;
+      }
+      return;
+    }
+
+    const row = data[0];
+    if (row.is_correct) {
+      let text = row.already_solved ? "정답이에요! (이미 풀었던 문제라 레이팅 변동은 없어요)" : "정답이에요!";
+      if (!row.already_solved) {
+        text += ` 레이팅 ${Math.round(row.new_rating)}`;
+        if (row.leveled_up) text += ` · ${tierLevelToInfo(row.new_tier_level).label} 승급!`;
+        if (row.coins_awarded > 0) text += ` · 코인 +${row.coins_awarded}`;
+      }
+      resultEl.className = "result-banner result-banner--correct";
+      resultEl.textContent = text;
+
+      checkCodingTierClearReward();
+    } else {
+      resultEl.className = "result-banner result-banner--wrong";
+      resultEl.textContent = row.failed_at
+        ? `오답이에요. 테스트케이스 ${row.failed_at}번에서 결과가 달라요.`
+        : "오답이에요. 다시 시도해보세요.";
+    }
   } catch (err) {
     resultEl.style.display = "block";
     resultEl.className = "result-banner result-banner--wrong";
-    resultEl.textContent = "채점 백엔드가 아직 준비되지 않았어요. (개발중: " + err.message + ")";
+    resultEl.textContent = "실행 중 오류가 발생했어요: " + err.message;
   }
-  // ─────────────────────────────────────────────────────────────────
 
   statusEl.style.display = "none";
   btn.disabled = false;
+  runBtn.disabled = false;
 }
 
+async function checkCodingTierClearReward() {
+  if (!currentProblem) return;
+  const { data, error } = await sb.rpc("check_tier_clear_reward", { p_subject: currentProblem.subject });
+  if (error || !data || data.length === 0) return;
+
+  const row = data[0];
+  if (row.awarded) {
+    const resultEl = document.getElementById("result");
+    const bonusEl = document.createElement("div");
+    bonusEl.className = "result-banner result-banner--correct";
+    bonusEl.style.display = "block";
+    bonusEl.style.marginTop = "10px";
+    bonusEl.textContent = `${tierLevelToInfo(row.tier_level).label} 티어 올클리어! 보상으로 "${row.item_name}"을(를) 획득했어요. 프로필에서 장착할 수 있어요.`;
+    resultEl.insertAdjacentElement("afterend", bonusEl);
+  }
+}
+
+document.getElementById("run-btn").addEventListener("click", runSample);
 document.getElementById("submit-btn").addEventListener("click", submitAnswer);
 loadProblem();
 </script>
