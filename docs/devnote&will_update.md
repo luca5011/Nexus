@@ -73,15 +73,18 @@ by Pacto7107
 기존 레이팅은 문제가 있었습니다.
 
 by Pacto7107
+## 2026. 08. 05
+### <span style="background-color:#00a">1.14</span> 통합 랭킹
+by Pacto7107
 # organize devnote
 ## Contributors
 <span style="background-color:#00a">by Pacto7107</span>  
 <span style="background-color:#094">by luca</span>
 
 ## Version
-Last version : 1.13  
-The version we are making : 1.14 문제 수식 지원
-Upcoming version : 1.14  
+Last version : 1.14  
+The version we are making : 1.15 문제 수식 지원
+Upcoming version : 1.15  
 ## to luca
 Pacto7107가 spl 실행을 원할까요?
 - [ ] Yes (예)
@@ -92,5 +95,5 @@ luca 또는 Pacto7107 가 실행했나요?
 - [ ] Waiting (대기)
 # Will_update
 - [ ] 문제 수식 지원
-- [ ] 통합 랭킹
+- [x] 통합 랭킹
 - [ ] 코딩 준비
