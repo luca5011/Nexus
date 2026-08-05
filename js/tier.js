@@ -94,3 +94,67 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+// ============================================================
+// LaTeX 수식 입력 툴바 (문제 작성 페이지의 textarea에 붙여 쓰는 공용 유틸)
+// ============================================================
+
+const LATEX_SYMBOLS = [
+  { label: "√",  before: "\\sqrt{", after: "}",    title: "제곱근" },
+  { label: "x²", before: "^{",      after: "}",    title: "지수(위첨자)" },
+  { label: "xₙ", before: "_{",      after: "}",    title: "아래첨자" },
+  { label: "a/b", before: "\\frac{", after: "}{}",  title: "분수" },
+  { label: "π",  before: "\\pi",    after: " ",    title: "파이" },
+  { label: "∞",  before: "\\infty", after: " ",    title: "무한대" },
+  { label: "±",  before: "\\pm",    after: " ",    title: "플러스마이너스" },
+  { label: "×",  before: "\\times", after: " ",    title: "곱하기" },
+  { label: "÷",  before: "\\div",   after: " ",    title: "나누기" },
+  { label: "≤",  before: "\\leq",   after: " ",    title: "이하" },
+  { label: "≥",  before: "\\geq",   after: " ",    title: "이상" },
+  { label: "≠",  before: "\\neq",   after: " ",    title: "같지 않음" },
+  { label: "sin", before: "\\sin",  after: " ",    title: "사인" },
+  { label: "cos", before: "\\cos",  after: " ",    title: "코사인" },
+  { label: "tan", before: "\\tan",  after: " ",    title: "탄젠트" },
+  { label: "log", before: "\\log",  after: " ",    title: "로그" },
+  { label: "ln",  before: "\\ln",   after: " ",    title: "자연로그" },
+  { label: "Σ",  before: "\\sum_{", after: "}^{}", title: "시그마(합)" },
+  { label: "∫",  before: "\\int_{", after: "}^{}", title: "적분" },
+  { label: "∠",  before: "\\angle ", after: "",    title: "각" },
+  { label: "°",  before: "^\\circ", after: " ",    title: "도(각도)" },
+];
+
+/**
+ * textarea의 현재 커서(또는 선택 영역)에 LaTeX 스니펫을 삽입.
+ * 선택된 텍스트가 있으면 그 텍스트를 before/after로 감싸고,
+ * 없으면 before+after를 삽입한 뒤 커서를 그 사이에 둠.
+ */
+function insertLatexAtCursor(textarea, before, after = "") {
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const selected = textarea.value.slice(start, end);
+  const insertText = before + selected + after;
+
+  textarea.value = textarea.value.slice(0, start) + insertText + textarea.value.slice(end);
+
+  const cursorPos = selected ? start + insertText.length : start + before.length;
+  textarea.focus();
+  textarea.setSelectionRange(cursorPos, cursorPos);
+}
+
+/** container 안에 LATEX_SYMBOLS 버튼들을 그려서, 누르면 textareaId 요소에 삽입되게 연결 */
+function renderLatexToolbar(container, textareaId) {
+  const textarea = document.getElementById(textareaId);
+  if (!container || !textarea) return;
+
+  container.innerHTML = LATEX_SYMBOLS.map((s, i) => `
+    <button type="button" class="btn btn--ghost latex-tool-btn" data-idx="${i}"
+      title="${escapeHtml(s.title)}"
+      style="font-size:13px; padding:4px 9px; font-family:var(--font-mono);">${escapeHtml(s.label)}</button>
+  `).join("");
+
+  container.querySelectorAll(".latex-tool-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const s = LATEX_SYMBOLS[parseInt(btn.dataset.idx, 10)];
+      insertLatexAtCursor(textarea, s.before, s.after);
+    });
+  });
+}

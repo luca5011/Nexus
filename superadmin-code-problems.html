@@ -37,7 +37,7 @@
 <div id="nav-root"></div>
 
 <main class="page" style="padding-top:32px;">
-  <a href="admin.html" class="btn btn--ghost" style="font-size:13px; padding:6px 10px; margin-bottom:12px;">← 관리자 메뉴</a>
+  <a href="superadmin.html" class="btn btn--ghost" style="font-size:13px; padding:6px 10px; margin-bottom:12px;">← 총관리자 메뉴</a>
   <h1>코딩 문제 관리</h1>
   <p style="color:var(--text-muted); font-size:13px;">총관리자 전용 · Judge0 채점용 문제와 테스트케이스를 관리해요.</p>
   <div id="guard-msg"></div>
@@ -53,6 +53,7 @@
         </div>
         <div class="field"><label>제목</label><input id="p-title" type="text" required></div>
         <div class="field"><label>문제 내용 (LaTeX 수식 지원: $인라인$, $$블록$$)</label><textarea id="p-content" rows="6" required></textarea></div>
+        <div id="p-content-toolbar" style="display:flex; flex-wrap:wrap; gap:6px; margin:-10px 0 16px;"></div>
 
         <div class="field"><label>예제 입력 (참가자에게 공개돼요)</label><textarea id="p-sample-input" rows="3"></textarea></div>
         <div class="field"><label>예제 출력 (참가자에게 공개돼요)</label><textarea id="p-sample-output" rows="3"></textarea></div>
@@ -132,7 +133,7 @@ function resetTestcaseRows() {
 }
 
 async function init() {
-  await renderNav("admin");
+  await renderNav("superadmin");
   const user = await requireAuth();
   if (!user) return;
 
@@ -142,6 +143,8 @@ async function init() {
     return;
   }
   document.getElementById("admin-body").style.display = "block";
+
+  renderLatexToolbar(document.getElementById("p-content-toolbar"), "p-content");
 
   resetTestcaseRows();
   document.getElementById("add-testcase-btn").addEventListener("click", () => addTestcaseRow());
@@ -269,7 +272,7 @@ async function init() {
     });
     rowsEl.querySelectorAll("button[data-copy-link]").forEach(btn => {
       btn.addEventListener("click", () => {
-        const url = `${window.location.origin}${window.location.pathname.replace("admin-code-problems.html", "problem_code.html")}?id=${btn.dataset.copyLink}`;
+        const url = `${window.location.origin}${window.location.pathname.replace("superadmin-code-problems.html", "problem_code.html")}?id=${btn.dataset.copyLink}`;
         navigator.clipboard?.writeText(url);
         alert("링크를 복사했어요:\n" + url);
       });

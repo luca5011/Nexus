@@ -36,7 +36,8 @@
           <input id="p-tier" type="number" min="0" max="17" value="0">
         </div>
         <div class="field"><label>제목</label><input id="p-title" type="text" required></div>
-        <div class="field"><label>문제 내용</label><textarea id="p-content" rows="5" required></textarea></div>
+        <div class="field"><label>문제 내용 (LaTeX 수식 지원: $인라인$, $$블록$$)</label><textarea id="p-content" rows="5" required></textarea></div>
+        <div id="p-content-toolbar" style="display:flex; flex-wrap:wrap; gap:6px; margin:-10px 0 16px;"></div>
         <div class="field">
           <label>답 유형</label>
           <select id="p-answer-type">
@@ -46,7 +47,8 @@
         </div>
 
         <div id="objective-fields">
-          <div class="field"><label>보기 (한 줄에 하나씩)</label><textarea id="p-choices" rows="4" placeholder="보기1&#10;보기2&#10;보기3&#10;보기4"></textarea></div>
+          <div class="field"><label>보기 (한 줄에 하나씩, LaTeX 수식 지원: $인라인$)</label><textarea id="p-choices" rows="4" placeholder="보기1&#10;보기2&#10;보기3&#10;보기4"></textarea></div>
+          <div id="p-choices-toolbar" style="display:flex; flex-wrap:wrap; gap:6px; margin:-10px 0 16px;"></div>
           <div class="field"><label>정답 보기 번호 (1부터 시작)</label><input id="p-correct-index" type="number" min="1" value="1"></div>
         </div>
         <div id="subjective-fields" style="display:none;">
@@ -100,6 +102,9 @@ async function init() {
     return;
   }
   document.getElementById("admin-body").style.display = "block";
+
+  renderLatexToolbar(document.getElementById("p-content-toolbar"), "p-content");
+  renderLatexToolbar(document.getElementById("p-choices-toolbar"), "p-choices");
 
   // 답 유형 전환
   document.getElementById("p-answer-type").addEventListener("change", (e) => {
