@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>코딩 문제 풀이 · Nexus</title>
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.17.0/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.17.0/katex.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.17.0/contrib/auto-render.min.js"></script>
 <script>document.documentElement.dataset.theme = localStorage.getItem("nexus-theme") || "dark";</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="icon" type="image/png" href="favicon.png">
@@ -209,6 +212,17 @@ async function loadProblem() {
     document.getElementById("sample-box").style.display = "grid";
     document.getElementById("sample-input").textContent = p.sample_input ?? "";
     document.getElementById("sample-output").textContent = p.sample_output ?? "";
+  }
+
+  // 문제 내용 안의 $...$ (인라인), $$...$$ (블록) 수식을 렌더링
+  if (typeof renderMathInElement === "function") {
+    renderMathInElement(document.querySelector("main"), {
+      delimiters: [
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false },
+      ],
+      throwOnError: false,
+    });
   }
 }
 
