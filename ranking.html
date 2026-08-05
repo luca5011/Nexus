@@ -19,7 +19,7 @@
 
   <div class="card" style="padding:0; overflow:hidden;">
     <table class="rank-table">
-      <thead><tr><th>순위</th><th>유저</th><th>티어</th><th>레이팅</th><th>푼 문제</th></tr></thead>
+      <thead><tr><th>순위</th><th>유저</th><th id="tier-col-header">티어</th><th>레이팅</th><th>푼 문제</th></tr></thead>
       <tbody id="rank-rows"></tbody>
     </table>
     <div id="empty" class="empty-state" style="display:none;">아직 랭킹 데이터가 없어요.</div>
@@ -56,6 +56,8 @@ async function loadRanking() {
   rowsEl.innerHTML = "";
 
   if (currentSubject === "overall") {
+    document.getElementById("tier-col-header").style.display = "none";
+
     const { data, error } = await sb.rpc("get_overall_ranking", { p_limit: 100 });
 
     if (error || !data || data.length === 0) {
@@ -64,20 +66,18 @@ async function loadRanking() {
     }
     emptyEl.style.display = "none";
 
-    rowsEl.innerHTML = data.map((row, i) => {
-      const tier = tierLevelToInfo(row.best_tier_level);
-      return `
-        <tr onclick="window.location.href='profile.html?id=${row.user_id}'" style="cursor:pointer;">
-          <td class="rank-num">${i + 1}</td>
-          <td>${row.username ?? "알 수 없음"}</td>
-          <td><span class="tier-badge tier-badge--sm" style="--tier-color:${tier.color}"><span class="tier-badge__hex"></span>${tier.label}</span></td>
-          <td style="font-family:var(--font-mono);">${Math.round(row.total_rating)}</td>
-          <td style="color:var(--text-muted);">${row.total_solved}</td>
-        </tr>
-      `;
-    }).join("");
+    rowsEl.innerHTML = data.map((row, i) => `
+      <tr onclick="window.location.href='profile.html?id=${row.user_id}'" style="cursor:pointer;">
+        <td class="rank-num">${i + 1}</td>
+        <td>${row.username ?? "알 수 없음"}</td>
+        <td style="font-family:var(--font-mono);">${Math.round(row.total_rating)}</td>
+        <td style="color:var(--text-muted);">${row.total_solved}</td>
+      </tr>
+    `).join("");
     return;
   }
+
+  document.getElementById("tier-col-header").style.display = "";
 
   const { data, error } = await sb
     .from("user_tiers")
