@@ -76,15 +76,17 @@ by Pacto7107
 ## 2026. 08. 05
 ### <span style="background-color:#00a">1.14</span> 통합 랭킹
 by Pacto7107
+### 버전 <span style="background-color:#094">1.15</span> 업데이트
+문제 수식 기능 추가
 # organize devnote
 ## Contributors
 <span style="background-color:#00a">by Pacto7107</span>  
 <span style="background-color:#094">by luca</span>
 
 ## Version
-Last version : 1.14  
-The version we are making : 1.15 문제 수식 지원
-Upcoming version : 1.15  
+Last version : 1.15  
+The version we are making : 1.16 문제 수식 지원
+Upcoming version : 1.16  
 ## to luca
 Pacto7107가 spl 실행을 원할까요?
 - [ ] Yes (예)
@@ -94,6 +96,6 @@ luca 또는 Pacto7107 가 실행했나요?
 - [x] Yes (예)
 - [ ] Waiting (대기)
 # Will_update
-- [ ] 문제 수식 지원
+- [x] 문제 수식 지원
 - [x] 통합 랭킹
 - [ ] 코딩 준비
