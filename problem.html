@@ -99,10 +99,37 @@ async function loadProblem() {
   } else {
     answerArea.innerHTML = `
       <div class="field">
-        <label for="subjective-input">답 입력</label>
+        <label for="subjective-input">답 입력 (LaTeX 수식 지원: $인라인$)</label>
         <input id="subjective-input" type="text" placeholder="정답을 입력하세요 (띄어쓰기/대소문자 무관)">
       </div>
+      <div id="subjective-input-toolbar" style="display:flex; flex-wrap:wrap; gap:6px; margin:-6px 0 12px;"></div>
+      <div id="subjective-input-preview" style="display:none; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); margin:-6px 0 12px; font-size:15px;"></div>
     `;
+
+    if (typeof renderLatexToolbar === "function") {
+      renderLatexToolbar(document.getElementById("subjective-input-toolbar"), "subjective-input");
+    }
+
+    const subjInput = document.getElementById("subjective-input");
+    const subjPreview = document.getElementById("subjective-input-preview");
+    subjInput.addEventListener("input", () => {
+      const val = subjInput.value.trim();
+      if (!val || !/\$/.test(val)) {
+        subjPreview.style.display = "none";
+        return;
+      }
+      subjPreview.style.display = "block";
+      subjPreview.textContent = val;
+      if (typeof renderMathInElement === "function") {
+        renderMathInElement(subjPreview, {
+          delimiters: [
+            { left: "$$", right: "$$", display: true },
+            { left: "$", right: "$", display: false },
+          ],
+          throwOnError: false,
+        });
+      }
+    });
   }
 
   // 문제 내용/보기 안의 $...$ (인라인), $$...$$ (블록) 수식을 렌더링
