@@ -39,6 +39,7 @@ async function renderNav(activePage) {
     { href: "show_tier_list.html", label: "티어 목록", key: "tiers" }, // 티어 메뉴 추가
     { href: "shop.html", label: "상점", key: "shop" },
     { href: "devnotes.html", label: "개발자노트", key: "devnotes" },
+    { href: "submissions.html", label: "채점 기록", key: "submissions" },
   ];
 
   let rightHtml = "";

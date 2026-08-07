@@ -87,7 +87,7 @@ async function loadSubmissions() {
       <td class="${s.is_correct ? "problem-row-solved" : ""}" style="${s.is_correct ? "" : "color:var(--danger)"}">${s.is_correct ? "정답" : "오답"}</td>
       <td>${s.username ?? "알 수 없음"}</td>
       <td style="color:var(--text-muted); font-size:13px;">${SUBJECTS[s.subject]?.label ?? "-"}</td>
-      <td><a href="problem.html?id=${s.problem_id}" style="text-decoration:underline;">${s.problem_title ?? "(삭제된 문제)"}</a></td>
+      <td><a href="problem.html?id=${s.problem_id}" style="text-decoration:none;">${s.problem_title ?? "(삭제된 문제)"}</a></td>
       <td style="color:var(--text-faint); font-size:12px; font-family:var(--font-mono);">${new Date(s.submitted_at).toLocaleString("ko-KR")}</td>
     </tr>
   `).join("");
